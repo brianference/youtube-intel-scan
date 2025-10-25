@@ -335,7 +335,7 @@ ${transcript.fullText}
         return res.status(400).json({ error: result.error });
       }
 
-      // Save insights
+      // Save insights with elite framework fields
       const insights = [];
       for (const insightData of result.insights) {
         const validatedInsight = insertInsightSchema.parse({
@@ -344,6 +344,14 @@ ${transcript.fullText}
           category: insightData.category || null,
           context: insightData.context || null,
           timestamp: null,
+          // Elite framework fields
+          transcriptNugget: insightData.transcriptNugget || null,
+          whyItMatters: insightData.whyItMatters || null,
+          actionableSteps: insightData.actionableSteps || null,
+          riceScore: insightData.riceScore || null,
+          toolsNeeded: insightData.toolsNeeded || null,
+          examplePrompt: insightData.examplePrompt || null,
+          weekTieIn: insightData.weekTieIn || null,
         });
         const insight = await storage.createInsight(validatedInsight);
         insights.push(insight);
