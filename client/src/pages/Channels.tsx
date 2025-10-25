@@ -79,8 +79,11 @@ export default function Channels() {
     scanChannelMutation.mutate(channelId);
   };
 
-  const handleView = (channelId: string) => {
-    setLocation(`/videos?channelId=${channelId}`);
+  const handleView = (id: string) => {
+    const channel = channels.find(c => c.id === id);
+    if (channel) {
+      setLocation(`/videos?channelId=${channel.channelId}`);
+    }
   };
 
   const handleAddChannel = () => {

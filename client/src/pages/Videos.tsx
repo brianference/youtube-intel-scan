@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { VideoCard } from "@/components/VideoCard";
@@ -19,18 +19,30 @@ export default function Videos() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
-  const [channelFilter, setChannelFilter] = useState<string | null>(null);
+  const [urlKey, setUrlKey] = useState(0); // Force re-render on URL changes
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
 
-  // Read channelId from URL params on mount
+  // Listen for navigation events to trigger re-renders
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const channelId = params.get('channelId');
-    if (channelId) {
-      setChannelFilter(channelId);
-    }
+    const handleNavigation = () => {
+      setUrlKey(prev => prev + 1);
+    };
+    
+    window.addEventListener('popstate', handleNavigation);
+    return () => window.removeEventListener('popstate', handleNavigation);
+  }, []);
+
+  // Also update urlKey when location changes (for programmatic navigation)
+  useEffect(() => {
+    setUrlKey(prev => prev + 1);
   }, [location]);
+
+  // Derive channelFilter from URL params - use useMemo to ensure fresh reads
+  const channelFilter = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('channelId');
+  }, [urlKey, location]); // Re-compute when URL changes
 
   const { data: videos = [], isLoading } = useQuery<Video[]>({
     queryKey: channelFilter ? ['/api/videos', channelFilter] : ['/api/videos'],
@@ -187,7 +199,6 @@ export default function Videos() {
     : null;
 
   const clearChannelFilter = () => {
-    setChannelFilter(null);
     setLocation('/videos');
   };
 
