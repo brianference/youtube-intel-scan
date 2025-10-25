@@ -176,6 +176,30 @@ End-to-end flow:
 
 ## Recent Changes
 
+### October 25, 2025 (Session 6 - Channel Filtering & URL State Management)
+- **Implemented channel-based video filtering for Videos page**
+  - Added "View Videos" button on Channels page that navigates to /videos?channelId=X
+  - Videos page reads channelId from URL query params and filters accordingly
+  - Visual filter banner displays active channel with "Clear Filter" button
+  - Fixed URL state sync using useMemo with urlKey state to ensure UI updates on navigation
+  - Handles all navigation types: sidebar links, back/forward buttons, programmatic navigation
+- **Expanded insight categories in analysis framework**
+  - Added "New AI PM" category for AI-specific product management content
+  - Added "Career Development" for professional growth insights
+  - Added "Communication & Writing" for PM communication skills
+  - Added "Design Thinking" for product design methodologies
+  - Updated Python analyze_insights.py prompt with new categories
+  - Updated Insights page filter dropdown to support all categories
+- **Enhanced video sorting**
+  - Videos now sorted newest-first (publishedAt DESC) in both /api/videos routes
+  - Applies to both filtered and unfiltered views
+- **Technical implementation details**
+  - Channel filter derives state from URL on every render (no React state for filter)
+  - Uses useMemo([urlKey, location]) to force recalculation when URL changes
+  - Popstate listener handles back/forward navigation
+  - Location effect handles programmatic navigation (sidebar, buttons)
+  - URL is single source of truth - no state sync issues
+
 ### October 25, 2025 (Session 5 - Elite Insights Framework)
 - **Upgraded insight extraction from basic to elite 5-stage analysis framework**
   - Expanded database schema with 7 new insight fields: transcriptNugget, whyItMatters, actionableSteps, riceScore, toolsNeeded, examplePrompt, weekTieIn
