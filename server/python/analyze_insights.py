@@ -26,7 +26,7 @@ TRANSCRIPT:
 For each insight, extract and structure the following:
 
 1. **Insight Title** (1-2 sentences): Clear, actionable takeaway
-2. **Category**: Product Strategy, User Research, Metrics & KPIs, Roadmapping, Stakeholder Management, Product Discovery, AI/Technical Skills, Agile/Scrum, or Leadership
+2. **Category**: Product Strategy, User Research, Metrics & KPIs, Roadmapping, Stakeholder Management, Product Discovery, AI/Technical Skills, Agile/Scrum, Leadership, New AI PM, Career Development, Communication & Writing, or Design Thinking
 3. **Transcript Nugget** (1-3 sentences): Direct quote or paraphrased evidence from the transcript
 4. **Why It Matters**: Explain the business/career impact (2-3 sentences)
 5. **Actionable Steps**: 3-5 concrete steps to implement this insight

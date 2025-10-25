@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoInput } from "@/components/VideoInput";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Download, Sparkles, Filter } from "lucide-react";
+import { Search, Download, Sparkles, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Video } from "@shared/schema";
+import type { Video, Channel } from "@shared/schema";
 
 export default function Videos() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,13 +19,32 @@ export default function Videos() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
+  const [channelFilter, setChannelFilter] = useState<string | null>(null);
   const { toast } = useToast();
+  const [location, setLocation] = useLocation();
+
+  // Read channelId from URL params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const channelId = params.get('channelId');
+    if (channelId) {
+      setChannelFilter(channelId);
+    }
+  }, [location]);
 
   const { data: videos = [], isLoading } = useQuery<Video[]>({
-    queryKey: ['/api/videos'],
+    queryKey: channelFilter ? ['/api/videos', channelFilter] : ['/api/videos'],
+    queryFn: async () => {
+      const url = channelFilter 
+        ? `/api/videos?channelId=${channelFilter}` 
+        : '/api/videos';
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch videos');
+      return response.json();
+    },
   });
 
-  const { data: channels = [] } = useQuery<any[]>({
+  const { data: channels = [] } = useQuery<Channel[]>({
     queryKey: ['/api/channels'],
   });
 
@@ -162,15 +182,50 @@ export default function Videos() {
     noTranscript: videos.filter(v => !v.transcriptDownloaded).length,
   };
 
+  const currentChannel = channelFilter 
+    ? channels.find(c => c.channelId === channelFilter)
+    : null;
+
+  const clearChannelFilter = () => {
+    setChannelFilter(null);
+    setLocation('/videos');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Videos</h1>
-        <p className="text-muted-foreground mt-1">
-          Download transcripts and analyze videos for product management insights
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Videos</h1>
+          <p className="text-muted-foreground mt-1">
+            Download transcripts and analyze videos for product management insights
+          </p>
+        </div>
+        {currentChannel && (
+          <Button
+            variant="outline"
+            onClick={clearChannelFilter}
+            data-testid="button-clear-channel-filter"
+          >
+            <X className="mr-2 h-4 w-4" />
+            Clear Filter
+          </Button>
+        )}
       </div>
+
+      {/* Channel Filter Banner */}
+      {currentChannel && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm">
+                Showing videos from: <strong>{currentChannel.name}</strong>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add Single Video */}
       <VideoInput

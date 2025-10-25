@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { ChannelCard } from "@/components/ChannelCard";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ export default function Channels() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: channels = [], isLoading } = useQuery<Channel[]>({
     queryKey: ['/api/channels'],
@@ -78,7 +80,7 @@ export default function Channels() {
   };
 
   const handleView = (channelId: string) => {
-    console.log('View channel:', channelId);
+    setLocation(`/videos?channelId=${channelId}`);
   };
 
   const handleAddChannel = () => {
