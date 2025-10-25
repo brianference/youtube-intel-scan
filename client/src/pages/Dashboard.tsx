@@ -75,9 +75,11 @@ export default function Dashboard() {
 
   const downloadTranscriptMutation = useMutation({
     mutationFn: async (videoId: string) => {
-      setDownloadingVideoId(videoId);
       const response = await apiRequest('POST', `/api/videos/${videoId}/transcript`, undefined);
       return await response.json();
+    },
+    onMutate: (videoId: string) => {
+      setDownloadingVideoId(videoId);
     },
     onSuccess: (data: any) => {
       setDownloadingVideoId(null);
@@ -99,9 +101,11 @@ export default function Dashboard() {
 
   const analyzeVideoMutation = useMutation({
     mutationFn: async (videoId: string) => {
-      setAnalyzingVideoId(videoId);
       const response = await apiRequest('POST', `/api/videos/${videoId}/analyze`, undefined);
       return await response.json();
+    },
+    onMutate: (videoId: string) => {
+      setAnalyzingVideoId(videoId);
     },
     onSuccess: (data: any) => {
       setAnalyzingVideoId(null);
