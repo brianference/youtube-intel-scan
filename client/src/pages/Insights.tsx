@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { InsightCard } from "@/components/InsightCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -31,18 +31,14 @@ export default function Insights() {
   });
 
   // Enrich insights with video data
-  const [enrichedInsights, setEnrichedInsights] = useState<InsightWithVideo[]>([]);
-
-  useEffect(() => {
+  const enrichedInsights = useMemo(() => {
     if (insights.length > 0 && videos.length > 0) {
-      const enriched = insights.map(insight => {
+      return insights.map(insight => {
         const video = videos.find(v => v.videoId === insight.videoId);
         return { ...insight, video };
       });
-      setEnrichedInsights(enriched);
-    } else {
-      setEnrichedInsights([]);
     }
+    return [];
   }, [insights, videos]);
 
   const categories = Array.from(new Set(insights.map(i => i.category).filter(Boolean))) as string[];
