@@ -21,15 +21,15 @@ export function VideoCard({ id, title, publishedAt, analyzed, channelName, onCli
       onClick={onClick}
       data-testid={`card-video-${id}`}
     >
-      <CardHeader className="space-y-3">
+      <CardHeader className="space-y-2 pb-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base line-clamp-2 flex-1">
+          <CardTitle className="text-sm line-clamp-2 flex-1">
             {title}
           </CardTitle>
           {analyzed ? (
-            <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" data-testid="icon-analyzed" />
+            <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" data-testid="icon-analyzed" />
           ) : (
-            <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0" data-testid="icon-pending" />
+            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" data-testid="icon-pending" />
           )}
         </div>
         
@@ -46,10 +46,10 @@ export function VideoCard({ id, title, publishedAt, analyzed, channelName, onCli
         
         <Badge
           variant={analyzed ? "secondary" : "default"}
-          className="w-fit"
+          className="w-fit text-xs"
           data-testid={`badge-status-${analyzed ? 'analyzed' : 'pending'}`}
         >
-          {analyzed ? "Analyzed" : "Ready to analyze"}
+          {analyzed ? "Analyzed" : "Ready"}
         </Badge>
       </CardHeader>
     </Card>

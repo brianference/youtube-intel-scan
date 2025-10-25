@@ -5,6 +5,7 @@ import { VideoCard } from "@/components/VideoCard";
 import { ChannelInput } from "@/components/ChannelInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Video, CheckCircle2, Clock, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -104,9 +105,9 @@ export default function Dashboard() {
 
       {/* Video List */}
       {videos.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Recent Videos</h2>
+            <h2 className="text-2xl font-bold">All Videos ({videos.length})</h2>
             {pendingCount > 0 && (
               <Badge variant="secondary" className="text-sm">
                 {pendingCount} ready to analyze
@@ -114,26 +115,20 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {videos.slice(0, 12).map((video) => (
-              <VideoCard
-                key={video.id}
-                id={video.id}
-                title={video.title}
-                publishedAt={video.publishedAt.toString()}
-                analyzed={video.analyzed}
-                onClick={() => console.log('Video clicked:', video.id)}
-              />
-            ))}
-          </div>
-
-          {videos.length > 12 && (
-            <div className="text-center pt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing 12 of {videos.length} videos
-              </p>
+          <ScrollArea className="h-[700px] pr-4">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {videos.map((video) => (
+                <VideoCard
+                  key={video.id}
+                  id={video.id}
+                  title={video.title}
+                  publishedAt={video.publishedAt.toString()}
+                  analyzed={video.analyzed}
+                  onClick={() => console.log('Video clicked:', video.id)}
+                />
+              ))}
             </div>
-          )}
+          </ScrollArea>
         </div>
       )}
 
