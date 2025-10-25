@@ -53,6 +53,20 @@ export const insights = pgTable("insights", {
   category: text("category"),
   context: text("context"),
   timestamp: text("timestamp"),
+  // Elite framework fields
+  transcriptNugget: text("transcript_nugget"),
+  whyItMatters: text("why_it_matters"),
+  actionableSteps: jsonb("actionable_steps").$type<string[]>(),
+  riceScore: jsonb("rice_score").$type<{
+    reach: number;
+    impact: number;
+    confidence: number;
+    effort: number;
+    total?: number;
+  }>(),
+  toolsNeeded: jsonb("tools_needed").$type<string[]>(),
+  examplePrompt: text("example_prompt"),
+  weekTieIn: text("week_tie_in"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
