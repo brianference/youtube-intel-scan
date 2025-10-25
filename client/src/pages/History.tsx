@@ -1,78 +1,128 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { InsightCard } from "@/components/InsightCard";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History as HistoryIcon, Search, Filter } from "lucide-react";
+import { History as HistoryIcon, Search, Filter, Download } from "lucide-react";
+import type { Insight, Video } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
-// TODO: Remove mock functionality
-const mockInsights = [
-  {
-    id: "1",
-    insight: "Product-market fit isn't a one-time achievement. It's a continuous journey of adaptation as your market evolves. The key is building feedback loops that tell you when you're drifting away from fit.",
-    videoTitle: "The Truth About Product-Market Fit",
-    channelName: "PM School",
-    timestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
-    category: "Product Strategy",
-  },
-  {
-    id: "2",
-    insight: "Don't confuse outputs with outcomes. Shipping features is an output. Changing user behavior is an outcome. Your OKRs should always focus on outcomes.",
-    videoTitle: "OKRs for Product Managers",
-    channelName: "Product Leaders",
-    timestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
-    category: "Metrics & KPIs",
-  },
-  {
-    id: "3",
-    insight: "The best user research happens when you observe what people do, not what they say. Watch their actions, their hesitations, their workarounds. That's where the real insights live.",
-    videoTitle: "User Research Methods That Work",
-    channelName: "PM School",
-    timestamp: new Date(Date.now() - 7 * 86400000).toISOString(),
-    category: "User Research",
-  },
-  {
-    id: "4",
-    insight: "A good product roadmap is a strategic communication tool, not a feature wish list. It should articulate why you're building something, not just what you're building.",
-    videoTitle: "Building Better Roadmaps",
-    channelName: "Tech Strategy",
-    timestamp: new Date(Date.now() - 10 * 86400000).toISOString(),
-    category: "Product Strategy",
-  },
-  {
-    id: "5",
-    insight: "Data tells you what's happening. User research tells you why. You need both to make informed product decisions. One without the other is incomplete.",
-    videoTitle: "Data-Driven Product Development",
-    channelName: "Product Leaders",
-    timestamp: new Date(Date.now() - 14 * 86400000).toISOString(),
-    category: "User Research",
-  },
-];
+interface InsightWithVideo extends Insight {
+  video?: Video;
+}
 
 export default function History() {
-  const [insights] = useState(mockInsights);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const { toast } = useToast();
 
-  const categories = Array.from(new Set(insights.map(i => i.category)));
+  const { data: insights = [], isLoading: insightsLoading } = useQuery<Insight[]>({
+    queryKey: ['/api/insights'],
+  });
 
-  const filteredInsights = insights.filter(insight => {
+  const { data: videos = [] } = useQuery<Video[]>({
+    queryKey: ['/api/videos'],
+  });
+
+  const { data: channels = [] } = useQuery({
+    queryKey: ['/api/channels'],
+  });
+
+  // Enrich insights with video data
+  const [enrichedInsights, setEnrichedInsights] = useState<InsightWithVideo[]>([]);
+
+  useEffect(() => {
+    if (insights.length > 0 && videos.length > 0) {
+      const enriched = insights.map(insight => {
+        const video = videos.find(v => v.videoId === insight.videoId);
+        return { ...insight, video };
+      });
+      setEnrichedInsights(enriched);
+    } else {
+      setEnrichedInsights([]);
+    }
+  }, [insights, videos]);
+
+  const categories = Array.from(new Set(insights.map(i => i.category).filter(Boolean))) as string[];
+
+  const filteredInsights = enrichedInsights.filter(insight => {
     const matchesSearch = insight.insight.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         insight.videoTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         insight.channelName.toLowerCase().includes(searchQuery.toLowerCase());
+                         insight.video?.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || insight.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
+  const handleExport = async () => {
+    if (channels.length === 0) {
+      toast({
+        title: "No channels",
+        description: "Add and analyze channels first to export insights",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Export first channel for now
+    const channelId = channels[0].id;
+    
+    try {
+      const response = await fetch(`/api/export/channel/${channelId}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export insights');
+      }
+
+      // Download file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `insights_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export successful",
+        description: "Insights exported to markdown file",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export insights",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getChannelName = (videoId: string) => {
+    const video = videos.find(v => v.videoId === videoId);
+    if (!video) return "Unknown Channel";
+    const channel = channels.find((c: any) => c.channelId === video.channelId);
+    return channel?.name || "Unknown Channel";
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Insight History</h1>
-        <p className="text-muted-foreground mt-1">
-          Browse and search through all extracted product management insights
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Insight History</h1>
+          <p className="text-muted-foreground mt-1">
+            Browse and search through all extracted product management insights
+          </p>
+        </div>
+        {insights.length > 0 && (
+          <Button onClick={handleExport} data-testid="button-export-insights">
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -108,13 +158,26 @@ export default function History() {
       )}
 
       {/* Insights Timeline */}
-      {filteredInsights.length > 0 ? (
+      {insightsLoading ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading insights...</p>
+        </div>
+      ) : filteredInsights.length > 0 ? (
         <div className="space-y-4">
           {filteredInsights.map((insight) => (
             <InsightCard
               key={insight.id}
-              {...insight}
-              onViewVideo={() => console.log('View video:', insight.id)}
+              id={insight.id}
+              insight={insight.insight}
+              videoTitle={insight.video?.title || "Unknown Video"}
+              channelName={getChannelName(insight.videoId)}
+              timestamp={insight.createdAt.toString()}
+              category={insight.category || undefined}
+              onViewVideo={() => {
+                if (insight.videoId) {
+                  window.open(`https://www.youtube.com/watch?v=${insight.videoId}`, '_blank');
+                }
+              }}
             />
           ))}
         </div>
@@ -130,14 +193,6 @@ export default function History() {
           title="No insights found"
           description={`No insights match your current filters. Try adjusting your search or category selection.`}
         />
-      )}
-
-      {filteredInsights.length > 0 && (
-        <div className="flex justify-center pt-4">
-          <Button variant="outline" data-testid="button-load-more">
-            Load More
-          </Button>
-        </div>
       )}
     </div>
   );
