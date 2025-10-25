@@ -149,6 +149,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/videos - Add a single video by URL
+  app.post("/api/videos", async (req, res) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ error: 'Video URL is required' });
+      }
+
+      // Fetch video metadata
+      const { stdout } = await runPythonScript('fetch_single_video.py', [url]);
+      const result = JSON.parse(stdout);
+
+      if (result.error) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      // Check if video already exists
+      const existingVideo = await storage.getVideoByVideoId(result.videoId);
+      if (existingVideo) {
+        return res.json({ video: existingVideo, message: 'Video already exists' });
+      }
+
+      // Check if channel exists, if not create it
+      let channel = await storage.getChannelByChannelId(result.channelId);
+      if (!channel) {
+        const newChannel = insertChannelSchema.parse({
+          channelId: result.channelId,
+          name: result.channelTitle,
+          description: '',
+        });
+        channel = await storage.createChannel(newChannel);
+      }
+
+      // Create video with properly converted data
+      const validatedVideo = insertVideoSchema.parse({
+        videoId: result.videoId,
+        channelId: result.channelId,
+        title: result.title,
+        description: result.description,
+        publishedAt: new Date(result.publishedAt),
+        thumbnailUrl: result.thumbnailUrl,
+        duration: result.duration,
+        viewCount: result.viewCount,
+      });
+      const video = await storage.createVideo(validatedVideo);
+
+      res.json({ video });
+    } catch (error: any) {
+      console.error('Error adding video:', error);
+      res.status(500).json({ error: error.message || 'Failed to add video' });
+    }
+  });
+
   // GET /api/videos - List all videos
   app.get("/api/videos", async (req, res) => {
     try {

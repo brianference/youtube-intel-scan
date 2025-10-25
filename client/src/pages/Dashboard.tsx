@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { StatsCard } from "@/components/StatsCard";
 import { ChannelInput } from "@/components/ChannelInput";
+import { VideoInput } from "@/components/VideoInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,6 +47,27 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: error.message || "Failed to analyze channel",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addVideoMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await apiRequest('POST', '/api/videos', { url });
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({
+        title: "Video added",
+        description: `Added: ${data.video.title}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add video",
         variant: "destructive",
       });
     },
@@ -190,11 +212,17 @@ export default function Dashboard() {
       </div>
 
       {/* Input Section */}
-      <ChannelInput
-        onAnalyze={handleAnalyze}
-        isLoading={addChannelMutation.isPending}
-        progress={progress}
-      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <ChannelInput
+          onAnalyze={handleAnalyze}
+          isLoading={addChannelMutation.isPending}
+          progress={progress}
+        />
+        <VideoInput
+          onSubmit={(url) => addVideoMutation.mutate(url)}
+          isLoading={addVideoMutation.isPending}
+        />
+      </div>
 
       {/* Video List */}
       {videos.length > 0 && (
@@ -244,7 +272,7 @@ export default function Dashboard() {
                         data-testid={`button-download-transcript-${video.id}`}
                       >
                         <Download className="mr-1 h-3 w-3" />
-                        {downloadingVideoId === video.id ? "Downloading..." : "Download Transcript"}
+                        {downloadingVideoId === video.id ? "Pulling..." : "Pull Transcript"}
                       </Button>
                     ) : !video.analyzed ? (
                       <>

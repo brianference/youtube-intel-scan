@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { VideoCard } from "@/components/VideoCard";
+import { VideoInput } from "@/components/VideoInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,27 @@ export default function Videos() {
 
   const { data: channels = [] } = useQuery<any[]>({
     queryKey: ['/api/channels'],
+  });
+
+  const addVideoMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await apiRequest('POST', '/api/videos', { url });
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({
+        title: "Video added",
+        description: `Added: ${data.video.title}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add video",
+        variant: "destructive",
+      });
+    },
   });
 
   const downloadTranscriptMutation = useMutation({
@@ -145,6 +167,12 @@ export default function Videos() {
           Download transcripts and analyze videos for product management insights
         </p>
       </div>
+
+      {/* Add Single Video */}
+      <VideoInput
+        onSubmit={(url) => addVideoMutation.mutate(url)}
+        isLoading={addVideoMutation.isPending}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -269,7 +297,7 @@ export default function Videos() {
                     data-testid={`button-download-transcript-${video.id}`}
                   >
                     <Download className="mr-1 h-3 w-3" />
-                    {downloadingVideoId === video.id ? "Downloading..." : "Download Transcript"}
+                    {downloadingVideoId === video.id ? "Pulling..." : "Pull Transcript"}
                   </Button>
                 ) : !video.analyzed ? (
                   <>
