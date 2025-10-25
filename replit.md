@@ -164,6 +164,13 @@ End-to-end flow:
 
 ## Recent Changes
 
+### October 25, 2025 (Session 3)
+- Fixed text truncation on video cards - now shows full titles with smaller font (text-sm)
+- Fixed button state bug - only the clicked button shows "downloading/analyzing" state
+- Added video filtering - excludes YouTube Shorts (only fetches videos 2+ minutes long)
+- Implemented ISO 8601 duration parsing in Python script
+- Per-video state tracking for download/analyze mutations
+
 ### October 25, 2025 (Session 2)
 - Made Dashboard video cards fully actionable with download/analyze/export buttons
 - Created dedicated Transcripts page for browsing and exporting downloaded transcripts
