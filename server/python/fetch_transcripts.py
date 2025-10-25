@@ -9,40 +9,30 @@ from youtube_transcript_api._errors import (
     TranscriptsDisabled,
     NoTranscriptFound,
     VideoUnavailable,
-    TooManyRequests,
+    RequestBlocked,
     YouTubeRequestFailed
 )
 
 def fetch_transcript(video_id, languages=['en']):
     """Fetch transcript for a video"""
     try:
-        # Get transcript
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Create API instance
+        api = YouTubeTranscriptApi()
         
-        # Try to find transcript in requested languages
-        transcript = None
-        for lang in languages:
-            try:
-                transcript = transcript_list.find_transcript([lang])
-                break
-            except:
-                continue
+        # Fetch transcript
+        transcript = api.fetch(video_id, languages=languages, preserve_formatting=False)
         
-        # If no match, get any available transcript
-        if not transcript:
-            try:
-                transcript = transcript_list.find_generated_transcript(languages)
-            except:
-                # Get first available transcript
-                for t in transcript_list:
-                    transcript = t
-                    break
-        
-        if not transcript:
-            return {'error': 'No transcript available'}
-        
-        # Fetch the transcript data
-        transcript_data = transcript.fetch()
+        # Convert snippets to dicts
+        snippets_list = []
+        texts = []
+        for snippet in transcript.snippets:
+            snippet_dict = {
+                'text': snippet.text,
+                'start': snippet.start,
+                'duration': snippet.duration
+            }
+            snippets_list.append(snippet_dict)
+            texts.append(snippet.text)
         
         # Format response
         result = {
@@ -50,8 +40,8 @@ def fetch_transcript(video_id, languages=['en']):
             'language': transcript.language,
             'languageCode': transcript.language_code,
             'isGenerated': transcript.is_generated,
-            'snippets': transcript_data,
-            'fullText': ' '.join([entry['text'] for entry in transcript_data])
+            'snippets': snippets_list,
+            'fullText': ' '.join(texts)
         }
         
         return result
@@ -62,8 +52,8 @@ def fetch_transcript(video_id, languages=['en']):
         return {'error': 'No transcript found for this video'}
     except VideoUnavailable:
         return {'error': 'Video is unavailable'}
-    except TooManyRequests:
-        return {'error': 'Too many requests. Please try again later.'}
+    except RequestBlocked:
+        return {'error': 'Request blocked. Please try again later.'}
     except YouTubeRequestFailed as e:
         return {'error': f'YouTube request failed: {str(e)}'}
     except Exception as e:
