@@ -5,8 +5,25 @@ Fetch videos from a YouTube channel using the YouTube Data API v3
 import os
 import sys
 import json
+import re
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+def parse_iso8601_duration(duration):
+    """Parse ISO 8601 duration format (e.g., PT1H2M10S) and return seconds"""
+    if not duration:
+        return 0
+    
+    # Extract hours, minutes, seconds using regex
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
+    if not match:
+        return 0
+    
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    
+    return hours * 3600 + minutes * 60 + seconds
 
 def extract_channel_id(url_or_id):
     """Extract channel ID from various URL formats or return as-is if already an ID"""
@@ -120,6 +137,16 @@ def get_channel_videos(youtube, channel_id, max_results=50):
                 details = video_details.get(video['videoId'], {})
                 video['duration'] = details.get('contentDetails', {}).get('duration', '')
                 video['viewCount'] = details.get('statistics', {}).get('viewCount', '0')
+            
+            # Filter out videos shorter than 2 minutes (120 seconds)
+            # This excludes YouTube Shorts and very short clips
+            filtered_videos = []
+            for video in videos:
+                duration_seconds = parse_iso8601_duration(video.get('duration', ''))
+                if duration_seconds >= 120:  # 2 minutes minimum
+                    filtered_videos.append(video)
+            
+            return filtered_videos
         
         return videos
     

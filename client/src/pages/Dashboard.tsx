@@ -13,6 +13,8 @@ import type { Video as VideoType } from "@shared/schema";
 
 export default function Dashboard() {
   const [progress, setProgress] = useState(0);
+  const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
+  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: videos = [], isLoading: videosLoading } = useQuery<VideoType[]>({
@@ -51,10 +53,12 @@ export default function Dashboard() {
 
   const downloadTranscriptMutation = useMutation({
     mutationFn: async (videoId: string) => {
+      setDownloadingVideoId(videoId);
       const response = await apiRequest('POST', `/api/videos/${videoId}/transcript`, undefined);
       return await response.json();
     },
     onSuccess: (data: any) => {
+      setDownloadingVideoId(null);
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       toast({
         title: "Transcript downloaded",
@@ -62,6 +66,7 @@ export default function Dashboard() {
       });
     },
     onError: (error: any) => {
+      setDownloadingVideoId(null);
       toast({
         title: "Error",
         description: error.message || "Failed to download transcript",
@@ -72,10 +77,12 @@ export default function Dashboard() {
 
   const analyzeVideoMutation = useMutation({
     mutationFn: async (videoId: string) => {
+      setAnalyzingVideoId(videoId);
       const response = await apiRequest('POST', `/api/videos/${videoId}/analyze`, undefined);
       return await response.json();
     },
     onSuccess: (data: any) => {
+      setAnalyzingVideoId(null);
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
       toast({
@@ -84,6 +91,7 @@ export default function Dashboard() {
       });
     },
     onError: (error: any) => {
+      setAnalyzingVideoId(null);
       toast({
         title: "Error",
         description: error.message || "Failed to analyze video",
@@ -206,7 +214,7 @@ export default function Dashboard() {
                 <Card key={video.id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base line-clamp-2">{video.title}</CardTitle>
+                      <CardTitle className="text-sm leading-tight">{video.title}</CardTitle>
                       {video.analyzed ? (
                         <Badge variant="default" className="shrink-0">
                           <Sparkles className="mr-1 h-3 w-3" />
@@ -232,11 +240,11 @@ export default function Dashboard() {
                         size="sm"
                         className="w-full"
                         onClick={() => handleDownloadTranscript(video.id)}
-                        disabled={downloadTranscriptMutation.isPending}
+                        disabled={downloadingVideoId === video.id}
                         data-testid={`button-download-transcript-${video.id}`}
                       >
                         <Download className="mr-1 h-3 w-3" />
-                        {downloadTranscriptMutation.isPending ? "Downloading..." : "Download Transcript"}
+                        {downloadingVideoId === video.id ? "Downloading..." : "Download Transcript"}
                       </Button>
                     ) : !video.analyzed ? (
                       <>
@@ -244,11 +252,11 @@ export default function Dashboard() {
                           size="sm"
                           className="w-full"
                           onClick={() => handleAnalyzeVideo(video.id)}
-                          disabled={analyzeVideoMutation.isPending}
+                          disabled={analyzingVideoId === video.id}
                           data-testid={`button-analyze-${video.id}`}
                         >
                           <Sparkles className="mr-1 h-3 w-3" />
-                          {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze Transcript"}
+                          {analyzingVideoId === video.id ? "Analyzing..." : "Analyze Transcript"}
                         </Button>
                         <Button
                           size="sm"
