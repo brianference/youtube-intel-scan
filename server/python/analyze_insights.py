@@ -62,7 +62,7 @@ def analyze_transcript(video_title, transcript_text):
         
         # Call Claude
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-20250514",
             max_tokens=4096,
             messages=[
                 {"role": "user", "content": prompt}
@@ -82,7 +82,7 @@ def analyze_transcript(video_title, transcript_text):
         
         return {
             'insights': insights,
-            'model': 'claude-3-5-sonnet-20241022',
+            'model': 'claude-sonnet-4-20250514',
             'tokensUsed': message.usage.input_tokens + message.usage.output_tokens
         }
         
