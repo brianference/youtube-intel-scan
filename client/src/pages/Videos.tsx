@@ -77,6 +77,40 @@ export default function Videos() {
     analyzeVideoMutation.mutate(videoId);
   };
 
+  const handleExportTranscript = async (videoId: string, title: string) => {
+    try {
+      const response = await fetch(`/api/videos/${videoId}/transcript/export`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export transcript');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `transcript_${filename}_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export successful",
+        description: "Transcript exported to markdown file",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export transcript",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filteredVideos = videos.filter(video => {
     const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = 
@@ -217,7 +251,7 @@ export default function Videos() {
                   {new Date(video.publishedAt).toLocaleDateString()}
                 </p>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 space-y-2">
                 {!video.transcriptDownloaded ? (
                   <Button
                     size="sm"
@@ -230,26 +264,50 @@ export default function Videos() {
                     {downloadTranscriptMutation.isPending ? "Downloading..." : "Download Transcript"}
                   </Button>
                 ) : !video.analyzed ? (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleAnalyze(video.id)}
-                    disabled={analyzeVideoMutation.isPending}
-                    data-testid={`button-analyze-${video.id}`}
-                  >
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze Transcript"}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleAnalyze(video.id)}
+                      disabled={analyzeVideoMutation.isPending}
+                      data-testid={`button-analyze-${video.id}`}
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze Transcript"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleExportTranscript(video.id, video.title)}
+                      data-testid={`button-export-transcript-${video.id}`}
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      Export Transcript
+                    </Button>
+                  </>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    disabled
-                  >
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    Completed
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      disabled
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      Completed
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleExportTranscript(video.id, video.title)}
+                      data-testid={`button-export-transcript-${video.id}`}
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      Export Transcript
+                    </Button>
+                  </>
                 )}
               </CardContent>
             </Card>

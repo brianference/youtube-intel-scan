@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { StatsCard } from "@/components/StatsCard";
-import { VideoCard } from "@/components/VideoCard";
 import { ChannelInput } from "@/components/ChannelInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Video, CheckCircle2, Clock, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -49,8 +49,93 @@ export default function Dashboard() {
     },
   });
 
+  const downloadTranscriptMutation = useMutation({
+    mutationFn: async (videoId: string) => {
+      const response = await apiRequest('POST', `/api/videos/${videoId}/transcript`, undefined);
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      toast({
+        title: "Transcript downloaded",
+        description: `Transcript available in ${data.transcript.language}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download transcript",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const analyzeVideoMutation = useMutation({
+    mutationFn: async (videoId: string) => {
+      const response = await apiRequest('POST', `/api/videos/${videoId}/analyze`, undefined);
+      return await response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
+      toast({
+        title: "Analysis complete",
+        description: `Extracted ${data.insights.length} insights`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to analyze video",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAnalyze = (url: string) => {
     addChannelMutation.mutate(url);
+  };
+
+  const handleDownloadTranscript = (videoId: string) => {
+    downloadTranscriptMutation.mutate(videoId);
+  };
+
+  const handleAnalyzeVideo = (videoId: string) => {
+    analyzeVideoMutation.mutate(videoId);
+  };
+
+  const handleExportTranscript = async (videoId: string, title: string) => {
+    try {
+      const response = await fetch(`/api/videos/${videoId}/transcript/export`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export transcript');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `transcript_${filename}_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export successful",
+        description: "Transcript exported to markdown file",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export transcript",
+        variant: "destructive",
+      });
+    }
   };
 
   const analyzedCount = videos.filter(v => v.analyzed).length;
@@ -118,14 +203,89 @@ export default function Dashboard() {
           <ScrollArea className="h-[700px] pr-4">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {videos.map((video) => (
-                <VideoCard
-                  key={video.id}
-                  id={video.id}
-                  title={video.title}
-                  publishedAt={video.publishedAt.toString()}
-                  analyzed={video.analyzed}
-                  onClick={() => console.log('Video clicked:', video.id)}
-                />
+                <Card key={video.id} className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base line-clamp-2">{video.title}</CardTitle>
+                      {video.analyzed ? (
+                        <Badge variant="default" className="shrink-0">
+                          <Sparkles className="mr-1 h-3 w-3" />
+                          Analyzed
+                        </Badge>
+                      ) : video.transcriptDownloaded ? (
+                        <Badge variant="secondary" className="shrink-0 bg-orange-500/10 text-orange-700 dark:text-orange-400">
+                          Ready
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="shrink-0">
+                          Pending
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(video.publishedAt).toLocaleDateString()}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2">
+                    {!video.transcriptDownloaded ? (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDownloadTranscript(video.id)}
+                        disabled={downloadTranscriptMutation.isPending}
+                        data-testid={`button-download-transcript-${video.id}`}
+                      >
+                        <Download className="mr-1 h-3 w-3" />
+                        {downloadTranscriptMutation.isPending ? "Downloading..." : "Download Transcript"}
+                      </Button>
+                    ) : !video.analyzed ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleAnalyzeVideo(video.id)}
+                          disabled={analyzeVideoMutation.isPending}
+                          data-testid={`button-analyze-${video.id}`}
+                        >
+                          <Sparkles className="mr-1 h-3 w-3" />
+                          {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze Transcript"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => handleExportTranscript(video.id, video.title)}
+                          data-testid={`button-export-transcript-${video.id}`}
+                        >
+                          <Download className="mr-1 h-3 w-3" />
+                          Export Transcript
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          disabled
+                        >
+                          <Sparkles className="mr-1 h-3 w-3" />
+                          Completed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => handleExportTranscript(video.id, video.title)}
+                          data-testid={`button-export-transcript-${video.id}`}
+                        >
+                          <Download className="mr-1 h-3 w-3" />
+                          Export Transcript
+                        </Button>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </ScrollArea>

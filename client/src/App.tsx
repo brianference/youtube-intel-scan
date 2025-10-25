@@ -7,6 +7,7 @@ import { Layout } from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import Channels from "@/pages/Channels";
 import Videos from "@/pages/Videos";
+import Transcripts from "@/pages/Transcripts";
 import Insights from "@/pages/Insights";
 import History from "@/pages/History";
 import NotFound from "@/pages/not-found";
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/channels" component={Channels} />
       <Route path="/videos" component={Videos} />
+      <Route path="/transcripts" component={Transcripts} />
       <Route path="/insights" component={Insights} />
       <Route path="/history" component={History} />
       <Route component={NotFound} />

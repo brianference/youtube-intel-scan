@@ -210,6 +210,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/videos/:id/transcript/export - Export transcript as markdown
+  app.post("/api/videos/:id/transcript/export", async (req, res) => {
+    try {
+      const video = await storage.getVideo(req.params.id);
+      if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+
+      const transcript = await storage.getTranscriptByVideoId(video.videoId);
+      if (!transcript) {
+        return res.status(404).json({ error: 'Transcript not found' });
+      }
+
+      // Create markdown content
+      const markdown = `# ${video.title}
+
+**Published:** ${new Date(video.publishedAt).toLocaleDateString()}  
+**Language:** ${transcript.language}  
+**Video URL:** https://www.youtube.com/watch?v=${video.videoId}
+
+---
+
+## Transcript
+
+${transcript.fullText}
+
+---
+
+*Exported from YouTube Intel Scan on ${new Date().toLocaleDateString()}*
+`;
+
+      // Send as downloadable file
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', `attachment; filename="transcript_${video.videoId}.md"`);
+      res.send(markdown);
+    } catch (error: any) {
+      console.error('Error exporting transcript:', error);
+      res.status(500).json({ error: error.message || 'Failed to export transcript' });
+    }
+  });
+
   // POST /api/videos/:id/analyze - Analyze video and extract insights
   app.post("/api/videos/:id/analyze", async (req, res) => {
     try {
