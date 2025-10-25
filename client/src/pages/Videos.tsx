@@ -106,7 +106,11 @@ export default function Videos() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate active-elevate-2 transition-all" 
+          onClick={() => setStatusFilter("all")}
+          data-testid="stat-card-total"
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
           </CardHeader>
@@ -114,7 +118,11 @@ export default function Videos() {
             <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate active-elevate-2 transition-all" 
+          onClick={() => setStatusFilter("analyzed")}
+          data-testid="stat-card-analyzed"
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Analyzed</CardTitle>
           </CardHeader>
@@ -122,7 +130,11 @@ export default function Videos() {
             <div className="text-2xl font-bold text-primary">{stats.analyzed}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate active-elevate-2 transition-all" 
+          onClick={() => setStatusFilter("with-transcript")}
+          data-testid="stat-card-ready"
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Ready</CardTitle>
           </CardHeader>
@@ -130,7 +142,11 @@ export default function Videos() {
             <div className="text-2xl font-bold text-orange-500">{stats.withTranscript}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate active-elevate-2 transition-all" 
+          onClick={() => setStatusFilter("no-transcript")}
+          data-testid="stat-card-pending"
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
@@ -178,47 +194,65 @@ export default function Videos() {
       ) : filteredVideos.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredVideos.map((video) => (
-            <div key={video.id} className="space-y-2">
-              <VideoCard
-                id={video.id}
-                title={video.title}
-                publishedAt={video.publishedAt.toString()}
-                analyzed={video.analyzed}
-                onClick={() => setSelectedVideo(video)}
-              />
-              {selectedVideo?.id === video.id && (
-                <div className="flex gap-2">
-                  {!video.transcriptDownloaded ? (
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleDownloadTranscript(video.id)}
-                      disabled={downloadTranscriptMutation.isPending}
-                      data-testid="button-download-transcript"
-                    >
-                      <Download className="mr-1 h-3 w-3" />
-                      {downloadTranscriptMutation.isPending ? "Downloading..." : "Download Transcript"}
-                    </Button>
-                  ) : !video.analyzed ? (
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleAnalyze(video.id)}
-                      disabled={analyzeVideoMutation.isPending}
-                      data-testid="button-analyze-video"
-                    >
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze"}
-                    </Button>
-                  ) : (
-                    <Badge className="flex-1 justify-center">
+            <Card key={video.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-base line-clamp-2">{video.title}</CardTitle>
+                  {video.analyzed ? (
+                    <Badge variant="default" className="shrink-0">
                       <Sparkles className="mr-1 h-3 w-3" />
                       Analyzed
                     </Badge>
+                  ) : video.transcriptDownloaded ? (
+                    <Badge variant="secondary" className="shrink-0 bg-orange-500/10 text-orange-700 dark:text-orange-400">
+                      Ready
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="shrink-0">
+                      Pending
+                    </Badge>
                   )}
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(video.publishedAt).toLocaleDateString()}
+                </p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {!video.transcriptDownloaded ? (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleDownloadTranscript(video.id)}
+                    disabled={downloadTranscriptMutation.isPending}
+                    data-testid={`button-download-transcript-${video.id}`}
+                  >
+                    <Download className="mr-1 h-3 w-3" />
+                    {downloadTranscriptMutation.isPending ? "Downloading..." : "Download Transcript"}
+                  </Button>
+                ) : !video.analyzed ? (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleAnalyze(video.id)}
+                    disabled={analyzeVideoMutation.isPending}
+                    data-testid={`button-analyze-${video.id}`}
+                  >
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    {analyzeVideoMutation.isPending ? "Analyzing..." : "Analyze Transcript"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled
+                  >
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    Completed
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : (
