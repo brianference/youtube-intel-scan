@@ -69,7 +69,7 @@ YouTube Intel Scan is a full-stack web application that extracts actionable prod
 **Backend:**
 - Node.js with Express
 - TypeScript
-- In-memory storage (MemStorage)
+- PostgreSQL database with Drizzle ORM (persistent storage)
 - Python integration for external services
 
 **External Services:**
@@ -101,19 +101,22 @@ Channels → Videos → Transcripts → Insights
 
 ### Backend
 - `server/routes.ts` - All Express API endpoints
-- `server/storage.ts` - Storage interface and MemStorage implementation
-- `server/python/fetch_channel_videos.py` - YouTube Data API integration
+- `server/db.ts` - Drizzle database client configuration
+- `server/storage.ts` - Storage interface and DbStorage implementation
+- `server/python/fetch_channel_videos.py` - YouTube Data API integration (channel scanning)
+- `server/python/fetch_single_video.py` - YouTube Data API integration (single video)
 - `server/python/fetch_transcripts.py` - Transcript downloading
 - `server/python/analyze_insights.py` - Claude AI analysis
 
 ### Frontend
-- `client/src/pages/Dashboard.tsx` - Main overview with actionable video cards
+- `client/src/pages/Dashboard.tsx` - Main overview with actionable video cards and single video input
 - `client/src/pages/Channels.tsx` - Channel management
-- `client/src/pages/Videos.tsx` - Video processing (download/analyze/export)
+- `client/src/pages/Videos.tsx` - Video processing with single video input (pull/analyze/export)
 - `client/src/pages/Transcripts.tsx` - Browse and export transcripts
 - `client/src/pages/Insights.tsx` - Browse extracted insights
 - `client/src/pages/History.tsx` - Insights browsing and export
-- `client/src/components/` - Reusable UI components
+- `client/src/components/VideoInput.tsx` - Single video URL input component
+- `client/src/components/` - Other reusable UI components
 
 ### Shared
 - `shared/schema.ts` - TypeScript types and Zod schemas for all data models
@@ -164,6 +167,24 @@ End-to-end flow:
 
 ## Recent Changes
 
+### October 25, 2025 (Session 4 - Database Migration)
+- **Migrated from in-memory to PostgreSQL database for persistent storage**
+  - Created database using Replit's built-in PostgreSQL
+  - Set up Drizzle ORM with neon-http driver for serverless compatibility
+  - Created `server/db.ts` with database client configuration
+  - Implemented DbStorage class to replace MemStorage
+  - Ran database migrations with `npm run db:push`
+  - Data now persists across server restarts
+- **Fixed single video upload schema validation**
+  - Removed invalid `url` field from channel creation
+  - Properly convert publishedAt to Date object
+  - Explicit field mapping for video insertion
+- **Fixed per-video button loading state bug**
+  - Moved state updates from `mutationFn` to `onMutate` callback
+  - Loading states now update synchronously when buttons are clicked
+  - Each video's buttons are properly isolated (no cross-contamination)
+  - Verified with end-to-end playwright tests
+
 ### October 25, 2025 (Session 3)
 - Fixed text truncation on video cards - now shows full titles with smaller font (text-sm)
 - Fixed button state bug - only the clicked button shows "downloading/analyzing" state
@@ -195,21 +216,18 @@ End-to-end flow:
 ## Known Issues
 
 - Python LSP warnings (type hints) - non-blocking
-- TypeScript minor warnings in History.tsx - non-blocking
-- No persistent database yet (using in-memory storage)
+- TypeScript minor warnings in storage.ts related to transcript snippets type - non-blocking
 
 ## Next Steps
 
-1. End-to-end testing with real YouTube channel
-2. Add persistent database (PostgreSQL/Drizzle)
-3. Implement batch processing for multiple videos
-4. Add user authentication
-5. Rate limiting for API calls
-6. Improved error recovery and retry logic
-7. Video thumbnail display
-8. Insight bookmarking/favorites
-9. Advanced filtering and search
-10. Analytics dashboard
+1. Implement batch processing for multiple videos
+2. Add user authentication
+3. Rate limiting for API calls
+4. Improved error recovery and retry logic
+5. Video thumbnail display
+6. Insight bookmarking/favorites
+7. Advanced filtering and search
+8. Analytics dashboard
 
 ## Dependencies
 
@@ -228,7 +246,7 @@ End-to-end flow:
 
 ## Notes
 
-- The application uses in-memory storage for MVP - data resets on server restart
+- The application uses PostgreSQL database for persistent storage - data survives server restarts
 - Python scripts are executed via Node child_process.spawn
 - Claude analysis can be expensive - track token usage
 - YouTube API has daily quotas - monitor usage

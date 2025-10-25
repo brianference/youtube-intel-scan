@@ -1,0 +1,117 @@
+Key Insights from Transcript Analysis
+I parsed the transcript for relevance: ~70% is demo-heavy (prompting, agents), 20% on AI PM skills/pay, 10% on future trends. Core message: AI PMs aren't "coders"—they're orchestrators of tech + business. For you as a new PM, this means using AI to compress your learning curve from months to days, especially in Equity Methods' niche (e.g., validating equity program assumptions via AI-simulated scenarios).
+Insight 1: Master Prompting as Your Week 1 Superpower (High Leverage for Discovery)
+
+Transcript Nugget: Pavle demos a "product trio" prompt for identifying hidden assumptions in ideas (e.g., automated investment recs). Key structure: (1) Context (team goals, prior steps like customer interviews), (2) Role-playing (PM, designer, engineer perspectives), (3) Structured output (assumptions by value/usability/viability/feasibility). He adds incentives like "perform at champion level for $1K" to boost quality. Result: LLM generates 11+ tasks distributed to "agents."
+Why It Matters for Equity Methods: Your Week 1 goal is identifying top 10 customer problems (e.g., ASC 718 reporting errors). Poor prompting = generic output; elite prompting = tailored insights like "Assumptions for Monte Carlo TSR modeling: Auditor acceptance of volatility inputs (feasibility risk: high)."
+Actionable Application (From New PM Quick Reference + Transcript):
+
+Day 1 Prompt Test: Paste this into Claude/ChatGPT (your setup tool):
+textYou are a senior AI PM at Equity Methods, specializing in equity compensation for Fortune 100 CFOs. Context: We're in continuous discovery mode post-customer interviews revealing pain in ASC 718 automation. Goal: Identify hidden assumptions for an idea to automate proxy disclosure prep.
+
+Role-play as: (1) CFO (value focus), (2) Comp Committee Chair (viability), (3) Auditor (feasibility).
+
+For each role, list 3-5 assumptions across value/usability/viability/feasibility. Output in a table. Perform at champion level—you get $1K if this uncovers a deal-breaker assumption.
+
+Expected Output: A RICE-scorable table (tie to your Week 1 checklist). Time: 10 mins. Impact: Validates problems faster than manual review of 20+ support tickets.
+
+
+Pro Tip: From AI-PM Quick Reference—save this as a template in your prompt library. Iterate: If output misses nuances (e.g., SEC Pay vs. Performance rules), add "Incorporate FASB/SEC updates from 2025."
+
+
+
+Insight 2: PRDs for AI Products: Keep It Lean and Assumption-Driven (Ties to Week 2 Strategy)
+
+Transcript Nugget: Shift from traditional PRDs to AI-specific ones: Start with problems/assumptions, not features. Pavle stresses "why it matters" context and multi-perspective validation. Avoid over-spec'ing—use AI to generate, then refine.
+Why It Matters for Equity Methods: Your 30-day plan calls for contributing to roadmaps (Week 3). Equity products involve high-stakes assumptions (e.g., 409A valuation accuracy). A bad PRD risks audit failures; AI-enhanced ones simulate scenarios.
+Actionable Application (Integrated with Product Management Knowledge Export):
+
+Week 2 PRD Hack: For a quick win like "Automate ESPP pricing alerts" (from Positioning Doc personas), use this prompt:
+textGenerate a 1-page PRD for Equity Methods' ESPP optimization tool. Problem: VPs of Compensation miss tax-optimized pricing windows, leading to 20% lower participation.
+
+Structure: Problem statement, success metrics (e.g., 15% participation lift), user stories (As a VP Comp, I want real-time pricing sims so that...), assumptions table (from CFO/auditor views), edge cases (international tax variances).
+
+Keep under 500 words—focus on assumptions that must hold for viability.
+
+Output: Ready for stakeholder review (e.g., Eng Lead 1:1). Use 21st.dev (from Toolkit Summary) for a visual prototype: /ui dashboard for ESPP pricing alerts with Monte Carlo sim charts.
+
+
+Measure Success: Track via your Week 1 mantra—"Learn first, contribute second." Aim for 80% alignment in feedback loops.
+
+
+
+Insight 3: Fine-Tuning vs. RAG: When to Use What (For Technical Credibility Without Coding)
+
+Transcript Nugget: Pavle clarifies: Use RAG (Retrieval-Augmented Generation) for domain-specific knowledge injection (e.g., pulling Equity Methods' ASC 718 docs into prompts). Fine-tuning for custom behaviors (e.g., tailoring outputs to comp committee tone). Demo: RAG pulls from a knowledge base; agents chain tasks (e.g., analyze data → generate report → email).
+Why It Matters for Equity Methods: No need to code (per your plan's "You Won't Do"), but understand to collaborate with Eng. E.g., RAG for querying historical 409A valuations; fine-tuning for personalized proxy narratives.
+Actionable Application (From AI-First Best Practices v2):
+
+Decision Tree for You (Week 1-2):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ScenarioUse RAGUse Fine-TuningEquity Methods ExampleQuick knowledge pull✅ (Fast, cheap)❌Retrieve SEC rules for Pay vs. Performance table gen.Custom tone/behavior❌✅ (If high volume)Train model on "defensible Comp Committee language" for reports.One-off analysis✅❌Simulate TSR payout curves from client data.
+
+Hands-On: In your AI copilot, test RAG: Upload Positioning Doc, prompt "Using Equity Methods' core differentiation, generate a battlecard vs. Big 4 for pre-IPO CFO persona." (From Competitive Positioning section.)
+
+
+
+Insight 4: Building AI Agents: Start Simple for Automation (Week 3-4 Execution Boost)
+
+Transcript Nugget: Live demo of an agent using tools (calendar, email) via MCP servers—improvised in 10 mins. Agents distribute tasks (e.g., call restaurant → add to calendar). Future: More AI PMs as market grows, but not all PMs need to pivot.
+Why It Matters for Equity Methods: Automate admin (e.g., agent scans for regulatory updates → alerts Comp teams). Ties to your "AI-enhanced workflow" goal—frees time for high-value discovery.
+Actionable Application (From Complete Toolkit Summary + wshobson Agents):
+
+Week 3 Agent Build: Use n8n (your automation tool): Trigger on new FASB update → AI analyzes impact → Emails CFO persona template. Prompt for agent: "As Equity Methods' risk-manager agent, assess this SEC change for ASC 718 compliance and draft a client alert."
+Scale Tip: Start with 2 tools (e.g., Google Calendar for demo meetings + email). From transcript: "It worked well—I think." Imperfect is progress.
+
+
+
+Insight 5: The AI PM Mindset: Business-Tech Bridge + Market Growth (Long-Term Confidence)
+
+Transcript Nugget: AI PMs earn more for blending skills (no coding needed, but "understand tech well enough"). Market boom means more roles—use tools like this course to upskill. Pavle's newsletter/community for ongoing support.
+Why It Matters for Equity Methods: Your Exec Overview stresses "fresh perspective + AI = 10x faster." Transcript reinforces: High probability of AI-infused PM roles in fintech/equity space.
+Actionable Application: Journal weekly (per Week 1 Plan): "What business problem did AI solve technically today?" Subscribe to Pavle's Product Compass (mentioned) for weekly AI sessions—aligns with your communities list.
+
+Step 3: Integrated Onboarding Roadmap Update
+Based on this analysis, here's a tightened Week 1-2 hybrid from your Detailed Plan + Transcript:
+
+Day 1: AI setup + first prompting demo (assumptions for top problem).
+Day 3: RAG test on Positioning Doc → Quick win PRD.
+Day 5: Agent prototype for competitive alerts.
+Week 2 Goal: 5 interviews synthesized via AI → RICE-scored problems list.
+
+This gets you to "feel WAY less lost" faster, with 2x the insights.
+Step 4: Quick Wins to Implement Today
+
+Run the Prompting Demo: Copy my Day 1 example—share output for feedback.
+RAG Setup: Upload 1-2 files (e.g., Positioning Doc) to Claude.
+Agent Teaser: Sketch a simple n8n flow for Equity-specific alerts.
+
+What do you think—should we prioritize prompting for your first customer problem analysis, or dive into a custom agent for regulatory monitoring? Or share a specific Equity Methods challenge (e.g., a recent support ticket) so I can tailor a demo prompt? Let's iterate to make your ramp-up unstoppable! 🚀
