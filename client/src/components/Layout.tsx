@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Youtube, History, Users, Menu, PlaySquare } from "lucide-react";
+import { Youtube, History, Users, Menu, PlaySquare, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -14,6 +14,7 @@ export function Layout({ children }: LayoutProps) {
     { path: "/", label: "Dashboard", icon: Youtube },
     { path: "/channels", label: "Channels", icon: Users },
     { path: "/videos", label: "Videos", icon: PlaySquare },
+    { path: "/insights", label: "Insights", icon: Lightbulb },
     { path: "/history", label: "History", icon: History },
   ];
 
