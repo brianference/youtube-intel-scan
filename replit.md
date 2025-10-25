@@ -28,6 +28,8 @@ YouTube Intel Scan is a full-stack web application that extracts actionable prod
    - Transcript downloading using youtube-transcript-api (no API key required)
    - Multi-language transcript support
    - Track processing status (pending, has transcript, analyzed)
+   - Actionable video cards on Dashboard and Videos pages
+   - Download, analyze, and export directly from video cards
 
 3. **AI-Powered Analysis**
    - Extract PM insights using Claude 3.5 Sonnet
@@ -35,17 +37,23 @@ YouTube Intel Scan is a full-stack web application that extracts actionable prod
    - Context preservation for each insight
    - Token usage tracking
 
-4. **Insights Management**
+4. **Transcript Management**
+   - Dedicated Transcripts page to browse all downloaded transcripts
+   - Search transcripts by title
+   - Export individual transcripts as markdown
+   - Statistics dashboard (total, analyzed, ready to analyze)
+
+5. **Insights Management**
    - Browse all extracted insights
    - Search by keyword, video title, or channel
    - Filter by category
    - View source video for each insight
 
-5. **Export Functionality**
-   - Export channel insights as formatted markdown
-   - Executive summary with statistics
+6. **Export Functionality**
+   - Export channel insights as formatted markdown (executive summary)
+   - Export individual transcripts as markdown (full text)
    - Insights grouped by video and category
-   - Direct download as .md file
+   - Direct download as .md files
 
 ## Project Architecture
 
@@ -99,9 +107,11 @@ Channels → Videos → Transcripts → Insights
 - `server/python/analyze_insights.py` - Claude AI analysis
 
 ### Frontend
-- `client/src/pages/Dashboard.tsx` - Main overview and channel input
+- `client/src/pages/Dashboard.tsx` - Main overview with actionable video cards
 - `client/src/pages/Channels.tsx` - Channel management
-- `client/src/pages/Videos.tsx` - Video processing (transcripts & analysis)
+- `client/src/pages/Videos.tsx` - Video processing (download/analyze/export)
+- `client/src/pages/Transcripts.tsx` - Browse and export transcripts
+- `client/src/pages/Insights.tsx` - Browse extracted insights
 - `client/src/pages/History.tsx` - Insights browsing and export
 - `client/src/components/` - Reusable UI components
 
@@ -154,7 +164,17 @@ End-to-end flow:
 
 ## Recent Changes
 
-### October 25, 2025
+### October 25, 2025 (Session 2)
+- Made Dashboard video cards fully actionable with download/analyze/export buttons
+- Created dedicated Transcripts page for browsing and exporting downloaded transcripts
+- Implemented transcript export functionality (download as markdown)
+- Added `/api/videos/:id/transcript/export` backend route
+- Added export transcript buttons to both Dashboard and Videos pages
+- Updated navigation to include Transcripts page between Videos and Insights
+- Export buttons appear after transcript download (both in Ready and Completed states)
+- Transcripts page includes search, stats, and export functionality
+
+### October 25, 2025 (Session 1)
 - Completed full MVP implementation
 - Created data schemas for all entities
 - Implemented Python integration for YouTube and Claude
