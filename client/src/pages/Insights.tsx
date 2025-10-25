@@ -169,6 +169,14 @@ export default function Insights() {
               channelName={getChannelName(insight.videoId)}
               timestamp={insight.createdAt.toString()}
               category={insight.category || undefined}
+              // Elite framework fields
+              transcriptNugget={insight.transcriptNugget}
+              whyItMatters={insight.whyItMatters}
+              actionableSteps={insight.actionableSteps}
+              riceScore={insight.riceScore}
+              toolsNeeded={insight.toolsNeeded}
+              examplePrompt={insight.examplePrompt}
+              weekTieIn={insight.weekTieIn}
               onViewVideo={() => {
                 if (insight.videoId) {
                   window.open(`https://www.youtube.com/watch?v=${insight.videoId}`, '_blank');
