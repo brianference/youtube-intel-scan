@@ -51,20 +51,17 @@ export default function Insights() {
   });
 
   const handleExport = async () => {
-    if (channels.length === 0) {
+    if (insights.length === 0) {
       toast({
-        title: "No channels",
-        description: "Add and analyze channels first to export insights",
+        title: "No insights",
+        description: "Analyze some videos first to export insights",
         variant: "destructive",
       });
       return;
     }
-
-    // Export first channel for now
-    const channelId = channels[0].id;
     
     try {
-      const response = await fetch(`/api/export/channel/${channelId}`, {
+      const response = await fetch('/api/export/all-insights', {
         method: 'POST',
       });
 
@@ -77,7 +74,7 @@ export default function Insights() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `insights_${Date.now()}.md`;
+      a.download = `all_pm_insights_${Date.now()}.md`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -85,7 +82,7 @@ export default function Insights() {
 
       toast({
         title: "Export successful",
-        description: "Insights exported to markdown file",
+        description: `Exported ${insights.length} insights to markdown file`,
       });
     } catch (error: any) {
       toast({
@@ -116,7 +113,7 @@ export default function Insights() {
         {insights.length > 0 && (
           <Button onClick={handleExport} data-testid="button-export-insights">
             <Download className="mr-2 h-4 w-4" />
-            Export
+            Export All
           </Button>
         )}
       </div>
