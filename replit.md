@@ -39,6 +39,24 @@ The application uses a PostgreSQL database for persistent storage, ensuring data
 - **Vite:** Build tool.
 ## Recent Changes
 
+### October 26, 2025 (Session 8 - Video Sort & Enhanced Export)
+- **Implemented video sort dropdown**
+  - Added sort dropdown to Videos page with "Newest first" (default) and "Oldest first" options
+  - Client-side sorting by publishedAt date using sortOrder state
+  - Videos are now dynamically sortable by publication date
+  - Test ID: select-sort-order
+- **Enhanced export all insights format**
+  - Export now includes ALL elite framework fields in structured markdown format
+  - New fields: From the Transcript (blockquote), Why It Matters, Actionable Steps (numbered list)
+  - New fields: RICE Score (table format), Tools Needed (comma-separated), Example Prompt (code blocks)
+  - New field: When to Apply (weekTieIn) for timing guidance
+  - Export format properly structures insights with 8 sections per insight
+  - Verified with curl that all fields are properly formatted
+- **Both features tested end-to-end**
+  - Video sort: Successfully tested switching between newest/oldest, proper sorting confirmed
+  - Export all: Successfully exported 51 insights with all elite fields included
+  - All API endpoints return 200 OK responses
+
 ### October 26, 2025 (Session 7 - Channel Deletion & Export All Insights)
 - **Implemented channel deletion with cascade delete**
   - Added DELETE /api/channels/:id endpoint that deletes channel and all related content
