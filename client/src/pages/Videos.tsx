@@ -16,6 +16,7 @@ import type { Video, Channel } from "@shared/schema";
 export default function Videos() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<string>("newest");
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
@@ -177,15 +178,26 @@ export default function Videos() {
     }
   };
 
-  const filteredVideos = videos.filter(video => {
-    const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = 
-      statusFilter === "all" ||
-      (statusFilter === "analyzed" && video.analyzed) ||
-      (statusFilter === "with-transcript" && video.transcriptDownloaded && !video.analyzed) ||
-      (statusFilter === "no-transcript" && !video.transcriptDownloaded);
-    return matchesSearch && matchesStatus;
-  });
+  const filteredVideos = videos
+    .filter(video => {
+      const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = 
+        statusFilter === "all" ||
+        (statusFilter === "analyzed" && video.analyzed) ||
+        (statusFilter === "with-transcript" && video.transcriptDownloaded && !video.analyzed) ||
+        (statusFilter === "no-transcript" && !video.transcriptDownloaded);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.publishedAt).getTime();
+      const dateB = new Date(b.publishedAt).getTime();
+      
+      if (sortOrder === "newest") {
+        return dateB - dateA; // Newest first
+      } else {
+        return dateA - dateB; // Oldest first
+      }
+    });
 
   const stats = {
     total: videos.length,
@@ -321,6 +333,15 @@ export default function Videos() {
               <SelectItem value="analyzed">Analyzed</SelectItem>
               <SelectItem value="with-transcript">Ready to analyze</SelectItem>
               <SelectItem value="no-transcript">No transcript</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortOrder} onValueChange={setSortOrder}>
+            <SelectTrigger className="w-full sm:w-40" data-testid="select-sort-order">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest first</SelectItem>
+              <SelectItem value="oldest">Oldest first</SelectItem>
             </SelectContent>
           </Select>
         </div>
