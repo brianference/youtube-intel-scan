@@ -40,10 +40,12 @@ The application uses a PostgreSQL database for persistent storage, ensuring data
 ## Recent Changes
 
 ### October 26, 2025 (Session 8 - Video Sort & Enhanced Export)
-- **Implemented video sort dropdown**
-  - Added sort dropdown to Videos page with "Newest first" (default) and "Oldest first" options
-  - Client-side sorting by publishedAt date using sortOrder state
-  - Videos are now dynamically sortable by publication date
+- **Implemented video sort dropdown with 3 options**
+  - Added sort dropdown with "Recently added" (default), "Newest published", and "Oldest published"
+  - "Recently added" sorts by when videos were added to database (createdAt)
+  - "Newest/Oldest published" sorts by YouTube publish date (publishedAt)
+  - Fixes issue where newly discovered videos appeared at bottom despite being recently added
+  - Client-side sorting with proper handling of both timestamp fields
   - Test ID: select-sort-order
 - **Enhanced export all insights format**
   - Export now includes ALL elite framework fields in structured markdown format
