@@ -494,6 +494,103 @@ ${transcript.fullText}
     }
   });
 
+  // POST /api/export/all-insights - Export all insights as markdown
+  app.post("/api/export/all-insights", async (req, res) => {
+    try {
+      // Get all insights
+      const allInsights = await storage.getAllInsights();
+      
+      if (allInsights.length === 0) {
+        return res.status(404).json({ error: 'No insights found' });
+      }
+
+      // Get all videos and channels to build the complete report
+      const videos = await storage.getAllVideos();
+      const channels = await storage.getAllChannels();
+      
+      // Create a map for quick lookups
+      const videoMap = new Map(videos.map(v => [v.videoId, v]));
+      const channelMap = new Map(channels.map(c => [c.channelId, c]));
+
+      // Generate markdown
+      let markdown = `# All Product Management Insights\n\n`;
+      markdown += `**Total Insights:** ${allInsights.length}\n`;
+      markdown += `**Total Channels:** ${channels.length}\n`;
+      markdown += `**Total Videos Analyzed:** ${videos.filter(v => v.analyzed).length}\n`;
+      markdown += `**Export Date:** ${new Date().toLocaleDateString()}\n\n`;
+      markdown += `---\n\n`;
+
+      // Group insights by category
+      const insightsByCategory: Record<string, any[]> = {};
+      allInsights.forEach(insight => {
+        const category = insight.category || 'Other';
+        if (!insightsByCategory[category]) {
+          insightsByCategory[category] = [];
+        }
+        insightsByCategory[category].push(insight);
+      });
+
+      markdown += `## Insights by Category\n\n`;
+      Object.entries(insightsByCategory).forEach(([category, insights]) => {
+        markdown += `- **${category}:** ${insights.length} insights\n`;
+      });
+      markdown += `\n---\n\n`;
+
+      // Group insights by video
+      const insightsByVideo: Record<string, any[]> = {};
+      allInsights.forEach(insight => {
+        if (!insightsByVideo[insight.videoId]) {
+          insightsByVideo[insight.videoId] = [];
+        }
+        insightsByVideo[insight.videoId].push(insight);
+      });
+
+      // Add insights by video
+      markdown += `## Insights by Video\n\n`;
+      Object.entries(insightsByVideo).forEach(([videoId, insights]) => {
+        const video = videoMap.get(videoId);
+        if (video) {
+          const channel = channelMap.get(video.channelId);
+          markdown += `### ${video.title}\n\n`;
+          if (channel) {
+            markdown += `**Channel:** ${channel.name}\n`;
+          }
+          markdown += `**Published:** ${video.publishedAt.toLocaleDateString()}\n`;
+          markdown += `**YouTube Link:** https://www.youtube.com/watch?v=${video.videoId}\n\n`;
+
+          insights.forEach((insight, index) => {
+            markdown += `#### Insight ${index + 1}${insight.category ? ` - ${insight.category}` : ''}\n\n`;
+            markdown += `${insight.insight}\n\n`;
+            if (insight.context) {
+              markdown += `*Context:* ${insight.context}\n\n`;
+            }
+          });
+
+          markdown += `---\n\n`;
+        }
+      });
+
+      // Add insights grouped by category
+      markdown += `## All Insights Grouped by Category\n\n`;
+      Object.entries(insightsByCategory).forEach(([category, insights]) => {
+        markdown += `### ${category}\n\n`;
+        insights.forEach((insight, index) => {
+          markdown += `${index + 1}. ${insight.insight}\n\n`;
+        });
+        markdown += `\n`;
+      });
+
+      // Send as downloadable file
+      const filename = `all_pm_insights_${Date.now()}.md`;
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(markdown);
+    } catch (error: any) {
+      console.error('Error exporting all insights:', error);
+      res.status(500).json({ error: error.message || 'Failed to export all insights' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
