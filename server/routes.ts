@@ -149,6 +149,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/channels/:id - Delete a channel and its videos, transcripts, and insights
+  app.delete("/api/channels/:id", async (req, res) => {
+    try {
+      const channel = await storage.getChannel(req.params.id);
+      if (!channel) {
+        return res.status(404).json({ error: 'Channel not found' });
+      }
+
+      await storage.deleteChannel(req.params.id);
+      res.json({ message: 'Channel deleted successfully' });
+    } catch (error: any) {
+      console.error('Error deleting channel:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete channel' });
+    }
+  });
+
   // POST /api/videos - Add a single video by URL
   app.post("/api/videos", async (req, res) => {
     try {

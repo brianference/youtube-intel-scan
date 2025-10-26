@@ -23,6 +23,7 @@ export interface IStorage {
   getAllChannels(): Promise<Channel[]>;
   createChannel(channel: InsertChannel): Promise<Channel>;
   updateChannel(id: string, updates: Partial<InsertChannel>): Promise<Channel | undefined>;
+  deleteChannel(id: string): Promise<void>;
 
   // Videos
   getVideo(id: string): Promise<Video | undefined>;
@@ -96,6 +97,39 @@ export class MemStorage implements IStorage {
     const updated = { ...channel, ...updates };
     this.channels.set(id, updated);
     return updated;
+  }
+
+  async deleteChannel(id: string): Promise<void> {
+    const channel = this.channels.get(id);
+    if (!channel) return;
+
+    // Get all videos for this channel
+    const channelVideos = Array.from(this.videos.values()).filter(
+      (video) => video.channelId === channel.channelId
+    );
+
+    // Delete transcripts and insights for each video
+    for (const video of channelVideos) {
+      // Delete insights for this video
+      for (const [insightId, insight] of this.insights.entries()) {
+        if (insight.videoId === video.videoId) {
+          this.insights.delete(insightId);
+        }
+      }
+
+      // Delete transcript for this video
+      for (const [transcriptId, transcript] of this.transcripts.entries()) {
+        if (transcript.videoId === video.videoId) {
+          this.transcripts.delete(transcriptId);
+        }
+      }
+
+      // Delete the video
+      this.videos.delete(video.id);
+    }
+
+    // Delete the channel
+    this.channels.delete(id);
   }
 
   // Videos
@@ -243,6 +277,30 @@ export class DbStorage implements IStorage {
       .where(eq(channels.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteChannel(id: string): Promise<void> {
+    // Get the channel to find its channelId
+    const channel = await this.getChannel(id);
+    if (!channel) return;
+
+    // Get all videos for this channel
+    const channelVideos = await this.getVideosByChannelId(channel.channelId);
+
+    // Delete insights and transcripts for each video
+    for (const video of channelVideos) {
+      // Delete insights for this video
+      await db.delete(insights).where(eq(insights.videoId, video.videoId));
+
+      // Delete transcript for this video
+      await db.delete(transcripts).where(eq(transcripts.videoId, video.videoId));
+    }
+
+    // Delete all videos for this channel
+    await db.delete(videos).where(eq(videos.channelId, channel.channelId));
+
+    // Delete the channel
+    await db.delete(channels).where(eq(channels.id, id));
   }
 
   // Videos
