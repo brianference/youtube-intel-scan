@@ -71,6 +71,30 @@ export default function Channels() {
     },
   });
 
+  const deleteChannelMutation = useMutation({
+    mutationFn: async (channelId: string) => {
+      const response = await apiRequest('DELETE', `/api/channels/${channelId}`, undefined);
+      return await response.json();
+    },
+    onSuccess: (data: any, channelId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/channels'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
+      const channel = channels.find(c => c.id === channelId);
+      toast({
+        title: "Channel deleted",
+        description: `Deleted ${channel?.name} and all associated content`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete channel",
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredChannels = channels.filter(channel =>
     channel.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -84,6 +108,10 @@ export default function Channels() {
     if (channel) {
       setLocation(`/videos?channelId=${channel.channelId}`);
     }
+  };
+
+  const handleDelete = (channelId: string) => {
+    deleteChannelMutation.mutate(channelId);
   };
 
   const handleAddChannel = () => {
@@ -182,6 +210,8 @@ export default function Channels() {
               }
               onScan={() => handleScan(channel.id)}
               onView={() => handleView(channel.id)}
+              onDelete={() => handleDelete(channel.id)}
+              isDeleting={deleteChannelMutation.isPending}
             />
           ))}
         </div>

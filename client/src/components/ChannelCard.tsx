@@ -1,7 +1,18 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Video, Users, Clock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Video, Users, Clock, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface ChannelCardProps {
@@ -13,6 +24,8 @@ interface ChannelCardProps {
   subscriberCount?: string;
   onScan?: () => void;
   onView?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 export function ChannelCard({
@@ -24,7 +37,10 @@ export function ChannelCard({
   subscriberCount,
   onScan,
   onView,
+  onDelete,
+  isDeleting = false,
 }: ChannelCardProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const initials = name
     .split(" ")
     .map((n) => n[0])
@@ -90,6 +106,48 @@ export function ChannelCard({
             View
           </Button>
         </div>
+
+        {onDelete && (
+          <>
+            <Button
+              variant="destructive"
+              className="w-full"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={isDeleting}
+              data-testid={`button-delete-${id}`}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? "Deleting..." : "Delete Channel"}
+            </Button>
+
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete <strong>{name}</strong> and all associated videos, transcripts, and insights. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid={`button-cancel-delete-${id}`}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      onDelete();
+                      setShowDeleteDialog(false);
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    data-testid={`button-confirm-delete-${id}`}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
       </CardContent>
     </Card>
   );
