@@ -24,7 +24,17 @@ function runPythonScript(scriptName: string, args: string[]): Promise<{ stdout: 
     
     python.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(stderr || `Python script exited with code ${code}`));
+        // Check if stdout contains JSON error before rejecting
+        try {
+          const result = JSON.parse(stdout);
+          if (result.error) {
+            reject(new Error(result.error));
+            return;
+          }
+        } catch (e) {
+          // Not JSON, use stderr or default message
+        }
+        reject(new Error(stderr || stdout || `Python script exited with code ${code}`));
       } else {
         resolve({ stdout, stderr });
       }
