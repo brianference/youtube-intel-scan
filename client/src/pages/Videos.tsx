@@ -16,7 +16,7 @@ import type { Video, Channel } from "@shared/schema";
 export default function Videos() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<string>("newest");
+  const [sortOrder, setSortOrder] = useState<string>("recently-added");
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
   const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
@@ -189,13 +189,21 @@ export default function Videos() {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      const dateA = new Date(a.publishedAt).getTime();
-      const dateB = new Date(b.publishedAt).getTime();
-      
-      if (sortOrder === "newest") {
-        return dateB - dateA; // Newest first
+      if (sortOrder === "recently-added") {
+        // Sort by when added to database (createdAt)
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // Most recently added first
       } else {
-        return dateA - dateB; // Oldest first
+        // Sort by YouTube publish date (publishedAt)
+        const dateA = new Date(a.publishedAt).getTime();
+        const dateB = new Date(b.publishedAt).getTime();
+        
+        if (sortOrder === "newest") {
+          return dateB - dateA; // Newest first
+        } else {
+          return dateA - dateB; // Oldest first
+        }
       }
     });
 
@@ -336,12 +344,13 @@ export default function Videos() {
             </SelectContent>
           </Select>
           <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-full sm:w-40" data-testid="select-sort-order">
+            <SelectTrigger className="w-full sm:w-48" data-testid="select-sort-order">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">Newest first</SelectItem>
-              <SelectItem value="oldest">Oldest first</SelectItem>
+              <SelectItem value="recently-added">Recently added</SelectItem>
+              <SelectItem value="newest">Newest published</SelectItem>
+              <SelectItem value="oldest">Oldest published</SelectItem>
             </SelectContent>
           </Select>
         </div>
