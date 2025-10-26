@@ -19,7 +19,7 @@ export default function Videos() {
   const [sortOrder, setSortOrder] = useState<string>("recently-added");
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [downloadingVideoId, setDownloadingVideoId] = useState<string | null>(null);
-  const [analyzingVideoId, setAnalyzingVideoId] = useState<string | null>(null);
+  const [analyzingVideoIds, setAnalyzingVideoIds] = useState<Set<string>>(new Set());
   const [urlKey, setUrlKey] = useState(0); // Force re-render on URL changes
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -114,10 +114,14 @@ export default function Videos() {
       return await response.json();
     },
     onMutate: (videoId: string) => {
-      setAnalyzingVideoId(videoId);
+      setAnalyzingVideoIds(prev => new Set([...Array.from(prev), videoId]));
     },
-    onSuccess: (data: any) => {
-      setAnalyzingVideoId(null);
+    onSuccess: (data: any, videoId: string) => {
+      setAnalyzingVideoIds(prev => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       queryClient.invalidateQueries({ queryKey: ['/api/insights'] });
       toast({
@@ -126,8 +130,12 @@ export default function Videos() {
       });
       setSelectedVideo(null);
     },
-    onError: (error: any) => {
-      setAnalyzingVideoId(null);
+    onError: (error: any, videoId: string) => {
+      setAnalyzingVideoIds(prev => {
+        const next = new Set(prev);
+        next.delete(videoId);
+        return next;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to analyze video",
@@ -405,11 +413,11 @@ export default function Videos() {
                       size="sm"
                       className="w-full"
                       onClick={() => handleAnalyze(video.id)}
-                      disabled={analyzingVideoId === video.id}
+                      disabled={analyzingVideoIds.has(video.id)}
                       data-testid={`button-analyze-${video.id}`}
                     >
                       <Sparkles className="mr-1 h-3 w-3" />
-                      {analyzingVideoId === video.id ? "Analyzing..." : "Analyze Transcript"}
+                      {analyzingVideoIds.has(video.id) ? "Analyzing..." : "Analyze Transcript"}
                     </Button>
                     <Button
                       size="sm"

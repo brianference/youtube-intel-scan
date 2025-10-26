@@ -184,7 +184,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if video already exists
       const existingVideo = await storage.getVideoByVideoId(result.videoId);
       if (existingVideo) {
-        return res.json({ video: existingVideo, message: 'Video already exists' });
+        // Update createdAt to reflect when it was re-added
+        const updatedVideo = await storage.updateVideo(existingVideo.id, {
+          createdAt: new Date(),
+        });
+        return res.json({ video: updatedVideo, message: 'Video already exists - moved to top of Recently Added' });
       }
 
       // Check if channel exists, if not create it
