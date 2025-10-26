@@ -560,22 +560,96 @@ ${transcript.fullText}
 
           insights.forEach((insight, index) => {
             markdown += `#### Insight ${index + 1}${insight.category ? ` - ${insight.category}` : ''}\n\n`;
-            markdown += `${insight.insight}\n\n`;
-            if (insight.context) {
-              markdown += `*Context:* ${insight.context}\n\n`;
+            markdown += `**${insight.insight}**\n\n`;
+            
+            // From the transcript
+            if (insight.transcriptNugget) {
+              markdown += `##### From the Transcript\n\n`;
+              markdown += `> ${insight.transcriptNugget}\n\n`;
             }
+            
+            // Why it matters
+            if (insight.whyItMatters) {
+              markdown += `##### Why It Matters\n\n`;
+              markdown += `${insight.whyItMatters}\n\n`;
+            }
+            
+            // Actionable steps
+            if (insight.actionableSteps) {
+              markdown += `##### Actionable Steps\n\n`;
+              try {
+                const steps = JSON.parse(insight.actionableSteps);
+                if (Array.isArray(steps)) {
+                  steps.forEach((step, i) => {
+                    markdown += `${i + 1}. ${step}\n`;
+                  });
+                  markdown += `\n`;
+                }
+              } catch {
+                markdown += `${insight.actionableSteps}\n\n`;
+              }
+            }
+            
+            // RICE Score
+            if (insight.riceScore) {
+              try {
+                const rice = JSON.parse(insight.riceScore);
+                markdown += `##### RICE Score\n\n`;
+                markdown += `- **Reach:** ${rice.reach || 'N/A'}\n`;
+                markdown += `- **Impact:** ${rice.impact || 'N/A'}\n`;
+                markdown += `- **Confidence:** ${rice.confidence || 'N/A'}\n`;
+                markdown += `- **Effort:** ${rice.effort || 'N/A'}\n`;
+                if (rice.total) {
+                  markdown += `- **Total:** ${rice.total}\n`;
+                }
+                markdown += `\n`;
+              } catch {
+                // Skip if invalid JSON
+              }
+            }
+            
+            // Tools needed
+            if (insight.toolsNeeded) {
+              try {
+                const tools = JSON.parse(insight.toolsNeeded);
+                if (Array.isArray(tools) && tools.length > 0) {
+                  markdown += `##### Tools Needed\n\n`;
+                  markdown += `${tools.join(', ')}\n\n`;
+                }
+              } catch {
+                markdown += `##### Tools Needed\n\n${insight.toolsNeeded}\n\n`;
+              }
+            }
+            
+            // Example prompt/template
+            if (insight.examplePrompt) {
+              markdown += `##### Example Prompt/Template\n\n`;
+              markdown += `\`\`\`\n${insight.examplePrompt}\n\`\`\`\n\n`;
+            }
+            
+            // Week tie-in
+            if (insight.weekTieIn) {
+              markdown += `##### When to Apply\n\n`;
+              markdown += `${insight.weekTieIn}\n\n`;
+            }
+            
+            markdown += `---\n\n`;
           });
 
-          markdown += `---\n\n`;
+          markdown += `\n`;
         }
       });
 
-      // Add insights grouped by category
-      markdown += `## All Insights Grouped by Category\n\n`;
+      // Add insights grouped by category (summary view)
+      markdown += `## All Insights Grouped by Category (Summary)\n\n`;
       Object.entries(insightsByCategory).forEach(([category, insights]) => {
         markdown += `### ${category}\n\n`;
         insights.forEach((insight, index) => {
-          markdown += `${index + 1}. ${insight.insight}\n\n`;
+          markdown += `${index + 1}. **${insight.insight}**`;
+          if (insight.weekTieIn) {
+            markdown += ` _(${insight.weekTieIn})_`;
+          }
+          markdown += `\n\n`;
         });
         markdown += `\n`;
       });
