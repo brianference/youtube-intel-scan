@@ -39,14 +39,22 @@ The application uses a PostgreSQL database for persistent storage, ensuring data
 - **Vite:** Build tool.
 ## Recent Changes
 
-### October 26, 2025 (Session 8 - Video Sort & Enhanced Export)
+### October 26, 2025 (Session 8 - Video Sort, Enhanced Export & Concurrent Analysis)
 - **Implemented video sort dropdown with 3 options**
   - Added sort dropdown with "Recently added" (default), "Newest published", and "Oldest published"
   - "Recently added" sorts by when videos were added to database (createdAt)
   - "Newest/Oldest published" sorts by YouTube publish date (publishedAt)
-  - Fixes issue where newly discovered videos appeared at bottom despite being recently added
+  - Fixed issue where re-adding existing videos didn't update createdAt timestamp
+  - When re-adding existing videos, createdAt is updated to current time
+  - Videos now correctly appear at top of "Recently added" list when manually re-added
   - Client-side sorting with proper handling of both timestamp fields
   - Test ID: select-sort-order
+- **Enabled concurrent transcript analysis**
+  - Users can now analyze multiple videos simultaneously
+  - Changed from single `analyzingVideoId` to `Set<string>` to track multiple concurrent analyses
+  - Each video shows independent "Analyzing..." state while processing
+  - Multiple Python analysis scripts can run concurrently on backend
+  - Significantly improves workflow efficiency when processing multiple videos
 - **Enhanced export all insights format**
   - Export now includes ALL elite framework fields in structured markdown format
   - New fields: From the Transcript (blockquote), Why It Matters, Actionable Steps (numbered list)
