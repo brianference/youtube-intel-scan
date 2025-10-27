@@ -1,10 +1,12 @@
 [build]
   publish = "dist"
   command = "npm run build"
+  functions = "netlify/functions"
 
-[[edge_functions]]
-  function = "fetch-transcript"
-  path = "/api/transcript-proxy"
+[[redirects]]
+  from = "/api/transcript-proxy"
+  to = "/.netlify/functions/fetch-transcript"
+  status = 200
 
 [dev]
   command = "npm run dev"
