@@ -1,6 +1,3 @@
-const { Innertube } = require('youtubei.js');
-const { HttpsProxyAgent } = require('https-proxy-agent');
-
 // Cache for proxy list (to avoid hitting webshare API on every request)
 let proxyCache = {
   proxies: [],
@@ -81,6 +78,10 @@ exports.handler = async (event) => {
   }
 
   try {
+    // Dynamic import for ES modules
+    const { Innertube } = await import('youtubei.js');
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+
     const videoId = event.queryStringParameters?.videoId;
     const languages = event.queryStringParameters?.languages || 'en';
 
