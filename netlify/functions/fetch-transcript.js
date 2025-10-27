@@ -1,4 +1,65 @@
 const { YoutubeTranscript } = require('youtube-transcript');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+
+// Cache for proxy list (to avoid hitting webshare API on every request)
+let proxyCache = {
+  proxies: [],
+  lastFetched: 0,
+  ttl: 300000, // Cache for 5 minutes
+};
+
+// Fetch proxies from webshare.io API
+async function getWebshareProxies() {
+  const apiKey = process.env.WEBSHARE_API_KEY;
+  
+  if (!apiKey) {
+    console.log('No WEBSHARE_API_KEY found - skipping proxy');
+    return [];
+  }
+
+  // Return cached proxies if still valid
+  const now = Date.now();
+  if (proxyCache.proxies.length > 0 && (now - proxyCache.lastFetched) < proxyCache.ttl) {
+    return proxyCache.proxies;
+  }
+
+  try {
+    console.log('Fetching proxy list from webshare.io...');
+    const response = await fetch('https://proxy.webshare.io/api/v2/proxy/list/', {
+      headers: {
+        'Authorization': `Token ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`Webshare API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const proxies = data.results.map(proxy => ({
+      url: `http://${proxy.username}:${proxy.password}@${proxy.proxy_address}:${proxy.port}`,
+      host: proxy.proxy_address,
+      port: proxy.port,
+      username: proxy.username,
+      password: proxy.password,
+    }));
+
+    console.log(`Fetched ${proxies.length} proxies from webshare.io`);
+    
+    // Update cache
+    proxyCache = {
+      proxies,
+      lastFetched: now,
+      ttl: proxyCache.ttl,
+    };
+
+    return proxies;
+  } catch (error) {
+    console.error('Error fetching webshare proxies:', error.message);
+    return [];
+  }
+}
 
 exports.handler = async (event) => {
   // CORS headers
@@ -32,14 +93,29 @@ exports.handler = async (event) => {
 
     console.log(`Fetching transcript for video: ${videoId}`);
 
-    // Fetch transcript with retry logic
-    const maxRetries = 3;
+    // Get proxies from webshare.io
+    const proxies = await getWebshareProxies();
+    const maxRetries = proxies.length > 0 ? Math.min(3, proxies.length) : 3;
     let lastError = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        let fetchOptions = {};
+
+        // Use proxy if available
+        if (proxies.length > 0) {
+          const proxy = proxies[attempt % proxies.length];
+          const proxyAgent = new HttpsProxyAgent(proxy.url);
+          fetchOptions = { agent: proxyAgent };
+          console.log(`Attempt ${attempt + 1}/${maxRetries} using proxy: ${proxy.host}:${proxy.port}`);
+        } else {
+          console.log(`Attempt ${attempt + 1}/${maxRetries} without proxy`);
+        }
+
+        // Fetch transcript
         const transcript = await YoutubeTranscript.fetchTranscript(videoId, {
           lang: languages.split(',')[0],
+          ...fetchOptions,
         });
 
         // Format response to match Python script output
@@ -72,9 +148,8 @@ exports.handler = async (event) => {
         console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, err.message);
 
         if (attempt < maxRetries - 1) {
-          // Exponential backoff: 3s, 6s
-          const delay = 3000 * Math.pow(2, attempt);
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          // Short delay before next attempt (1 second)
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     }
