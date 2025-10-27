@@ -24,6 +24,8 @@ externalPort = 3001
 
 [env]
 PORT = "5000"
+# Set to "true" to enable Tor proxy for YouTube requests (bypasses IP blocking)
+USE_TOR_PROXY = "false"
 
 [workflows]
 runButton = "Project"

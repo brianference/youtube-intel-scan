@@ -7,4 +7,5 @@ dependencies = [
     "anthropic>=0.71.0",
     "google-api-python-client>=2.185.0",
     "youtube-transcript-api>=1.2.3",
+    "requests[socks]>=2.31.0",
 ]
