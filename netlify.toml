@@ -1,0 +1,11 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[[edge_functions]]
+  function = "fetch-transcript"
+  path = "/api/transcript-proxy"
+
+[dev]
+  command = "npm run dev"
+  port = 5000
