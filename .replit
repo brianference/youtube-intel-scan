@@ -24,7 +24,13 @@ externalPort = 3001
 
 [env]
 PORT = "5000"
-# Set to "true" to enable Tor proxy for YouTube requests (bypasses IP blocking)
+
+# Netlify Proxy (RECOMMENDED - works in Replit containers)
+# Set to "true" to use Netlify Function as proxy
+USE_NETLIFY_PROXY = "false"
+# NETLIFY_PROXY_URL = "https://your-site.netlify.app"
+
+# Tor Proxy (NOT COMPATIBLE with Replit - use for local dev only)
 USE_TOR_PROXY = "false"
 
 [workflows]

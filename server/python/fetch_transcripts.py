@@ -62,6 +62,44 @@ def refresh_tor_circuit():
         logging.warning(f"Failed to refresh Tor circuit: {e}")
         return False
 
+def fetch_via_netlify_proxy(video_id, languages=['en']):
+    """Fetch transcript via Netlify Function proxy"""
+    import requests
+
+    netlify_url = os.environ.get('NETLIFY_PROXY_URL', '')
+    if not netlify_url:
+        raise Exception("NETLIFY_PROXY_URL environment variable not set")
+
+    # Remove trailing slash if present
+    netlify_url = netlify_url.rstrip('/')
+
+    # Construct full URL
+    url = f"{netlify_url}/api/transcript-proxy"
+    params = {
+        'videoId': video_id,
+        'languages': ','.join(languages)
+    }
+
+    logging.info(f"Fetching via Netlify proxy: {url}")
+
+    try:
+        response = requests.get(url, params=params, timeout=30)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            # Try to parse error from response
+            try:
+                error_data = response.json()
+                return {'error': error_data.get('error', f'HTTP {response.status_code}')}
+            except:
+                return {'error': f'HTTP {response.status_code}: {response.text[:100]}'}
+
+    except requests.exceptions.Timeout:
+        return {'error': 'Netlify proxy request timed out'}
+    except requests.exceptions.RequestException as e:
+        return {'error': f'Netlify proxy request failed: {str(e)}'}
+
 def get_proxies():
     """Get proxy configuration for requests"""
     use_tor = os.environ.get('USE_TOR_PROXY', 'false').lower() == 'true'
@@ -177,7 +215,14 @@ def fetch_transcript_with_retry(video_id, languages=['en'], max_retries=5):
 
 def fetch_transcript(video_id, languages=['en']):
     """Fetch transcript for a video (wrapper for compatibility)"""
-    return fetch_transcript_with_retry(video_id, languages)
+    # Check if we should use Netlify proxy
+    use_netlify = os.environ.get('USE_NETLIFY_PROXY', 'false').lower() == 'true'
+
+    if use_netlify:
+        logging.info(f"Using Netlify proxy for video {video_id}")
+        return fetch_via_netlify_proxy(video_id, languages)
+    else:
+        return fetch_transcript_with_retry(video_id, languages)
 
 def main():
     if len(sys.argv) < 2:

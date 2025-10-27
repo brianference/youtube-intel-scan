@@ -1,0 +1,25 @@
+# Netlify configuration for YouTube transcript proxy
+
+[build]
+  # No build needed - just deploying functions
+  publish = "."
+
+[functions]
+  # Node.js functions directory
+  directory = "netlify/functions"
+  # Use Node.js 18
+  node_bundler = "esbuild"
+
+# Redirect /api/transcript-proxy to the function
+[[redirects]]
+  from = "/api/transcript-proxy"
+  to = "/.netlify/functions/fetch-transcript"
+  status = 200
+
+# Allow CORS for all origins (you can restrict this to your Replit domain)
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
