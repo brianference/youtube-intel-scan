@@ -66,26 +66,28 @@ The application uses a PostgreSQL database for persistent storage, ensuring data
 - **Vite:** Build tool.
 ## Recent Changes
 
-### October 27, 2025 (Session 9 - Netlify Edge Function Proxy for Production)
-- **Implemented Netlify Edge Function proxy to bypass YouTube IP blocking**
+### October 27, 2025 (Session 9 - Netlify Function Proxy for Production)
+- **Implemented Netlify Function proxy to bypass YouTube IP blocking**
   - YouTube blocks cloud provider IPs (Replit, AWS, GCP) from accessing transcripts
-  - Created `netlify/edge-functions/fetch-transcript.ts` using `youtube-transcript` library from ESM
-  - Edge Function includes 3 automatic retries with exponential backoff (3s → 6s delays)
+  - Created `netlify/functions/fetch-transcript.js` using `youtube-transcript` npm package (Node.js)
+  - Converted from Edge Functions (Deno) to regular Functions (Node.js) for better library compatibility
+  - Function includes 3 automatic retries with exponential backoff (3s → 6s delays)
   - Full CORS support for direct API access
   - Proper error handling for all YouTube error types (disabled, private, unavailable videos)
 - **Smart routing with automatic fallback**
-  - Updated `server/routes.ts` to try Netlify Edge Function first
+  - Updated `server/routes.ts` to try Netlify Function first
   - Automatically falls back to local Python script if Netlify fails
   - Uses `NETLIFY_FUNCTION_URL` environment variable (optional - graceful degradation)
   - Detailed logging for debugging (shows which method succeeded)
 - **Deployment infrastructure**
   - Created `netlify.toml` configuration for automatic deployment
-  - Edge Function path: `/api/transcript-proxy`
+  - Function path: `/api/transcript-proxy` (redirects to `/.netlify/functions/fetch-transcript`)
   - Created `NETLIFY_PROXY_SETUP.md` with complete deployment instructions
+  - Added `youtube-transcript` package to dependencies
   - Includes CLI deployment and GitHub integration methods
 - **Production-ready solution**
-  - Free tier supports 3M requests/month (well beyond typical usage)
-  - Global edge network provides low latency
+  - Free tier supports 125K requests/month (sufficient for typical usage)
+  - Serverless functions with global distribution
   - Works in production environments where cloud IPs are blocked
   - Successfully pushed to GitHub repository for Netlify deployment
 

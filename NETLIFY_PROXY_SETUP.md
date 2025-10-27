@@ -1,10 +1,10 @@
 # Netlify Proxy Setup for YouTube Transcripts
 
-This guide explains how to deploy the Netlify Edge Function proxy to bypass YouTube's cloud IP blocking.
+This guide explains how to deploy the Netlify Function proxy to bypass YouTube's cloud IP blocking.
 
 ## Why Netlify?
 
-YouTube blocks requests from known cloud provider IPs (Replit, AWS, GCP, etc.). By routing transcript requests through Netlify's Edge Functions, you get:
+YouTube blocks requests from known cloud provider IPs (Replit, AWS, GCP, etc.). By routing transcript requests through Netlify's serverless Functions, you get:
 - ✅ Different IP pool (not blocked like Replit)
 - ✅ Free tier (up to 3 million requests/month)
 - ✅ Automatic retries with exponential backoff
@@ -24,7 +24,7 @@ npm install -g netlify-cli
 # Login to Netlify
 netlify login
 
-# Deploy the Edge Function
+# Deploy the Function
 netlify deploy --prod
 
 # Note the deployment URL (e.g., https://your-app.netlify.app)
@@ -39,9 +39,9 @@ netlify deploy --prod
 5. Netlify will auto-detect the `netlify.toml` configuration
 6. Click "Deploy site"
 
-### 2. Get Your Edge Function URL
+### 2. Get Your Function URL
 
-After deployment, your Edge Function will be available at:
+After deployment, your Netlify Function will be available at:
 ```
 https://YOUR-NETLIFY-SITE.netlify.app/api/transcript-proxy
 ```
@@ -86,14 +86,14 @@ Failure → Fallback to Python script
 
 ### Retry Logic
 
-The Edge Function includes smart retry logic:
+The Netlify Function includes smart retry logic:
 - **3 automatic retries** with exponential backoff
 - **Delays**: 3 seconds → 6 seconds
 - **Logging**: All attempts logged to Netlify function logs
 
 ## Testing the Setup
 
-### 1. Test Edge Function Directly
+### 1. Test Function Directly
 
 ```bash
 curl "https://YOUR-NETLIFY-SITE.netlify.app/api/transcript-proxy?videoId=dQw4w9WgXcQ&languages=en"
@@ -122,18 +122,22 @@ View logs in Netlify dashboard:
 
 ## Troubleshooting
 
-### Edge Function Not Found (404)
+### Function Not Found (404)
 
-**Check netlify.toml path:**
+**Check netlify.toml configuration:**
 ```toml
-[[edge_functions]]
-  function = "fetch-transcript"
-  path = "/api/transcript-proxy"
+[build]
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/transcript-proxy"
+  to = "/.netlify/functions/fetch-transcript"
+  status = 200
 ```
 
 **Verify file exists:**
 ```
-netlify/edge-functions/fetch-transcript.ts
+netlify/functions/fetch-transcript.js
 ```
 
 ### Netlify Still Getting Blocked
@@ -144,14 +148,14 @@ If Netlify's IPs are also blocked:
 
 ### Transcripts Timing Out
 
-Increase the Edge Function timeout (default is 10s):
-- Netlify Edge Functions have a 30s timeout limit
+Netlify Functions have a 10-second timeout on the free tier:
 - Most transcripts fetch in < 5 seconds
+- If needed, upgrade to Pro for 26-second timeout
 
 ## Cost & Limits
 
 **Netlify Free Tier:**
-- ✅ 3 million Edge Function requests/month
+- ✅ 125,000 Function requests/month
 - ✅ 100 GB bandwidth
 - ✅ Automatic HTTPS
 - ✅ Global CDN
@@ -162,9 +166,10 @@ Increase the Edge Function timeout (default is 10s):
 
 ## Files
 
-- `netlify/edge-functions/fetch-transcript.ts` - Edge Function code
+- `netlify/functions/fetch-transcript.js` - Netlify Function code (Node.js)
 - `netlify.toml` - Netlify configuration
 - `server/routes.ts` - Backend integration (lines 275-297)
+- `package.json` - Contains `youtube-transcript` dependency
 
 ## Alternative: Residential Proxies
 
