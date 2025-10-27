@@ -265,10 +265,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ transcript: existingTranscript, message: 'Transcript already exists' });
       }
 
-      // Fetch transcript
+      // Fetch transcript - try Netlify proxy first, fall back to Python
       const languages = req.body.languages || 'en';
-      const { stdout } = await runPythonScript('fetch_transcripts.py', [video.videoId, languages]);
-      const result = JSON.parse(stdout);
+      let result;
+
+      // Try Netlify Edge Function first (if configured)
+      const netlifyUrl = process.env.NETLIFY_FUNCTION_URL;
+      if (netlifyUrl) {
+        try {
+          console.log(`Fetching transcript via Netlify proxy: ${video.videoId}`);
+          const response = await fetch(
+            `${netlifyUrl}?videoId=${encodeURIComponent(video.videoId)}&languages=${encodeURIComponent(languages)}`,
+            { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+          );
+
+          if (response.ok) {
+            result = await response.json();
+            console.log(`Successfully fetched transcript via Netlify for ${video.videoId}`);
+          } else {
+            const error = await response.json();
+            console.warn(`Netlify proxy failed (${response.status}): ${error.error}. Falling back to Python.`);
+            result = null;
+          }
+        } catch (error: any) {
+          console.warn(`Netlify proxy error: ${error.message}. Falling back to Python.`);
+          result = null;
+        }
+      }
+
+      // Fallback to Python script if Netlify didn't work
+      if (!result) {
+        console.log(`Fetching transcript via Python script: ${video.videoId}`);
+        const { stdout } = await runPythonScript('fetch_transcripts.py', [video.videoId, languages]);
+        result = JSON.parse(stdout);
+      }
 
       if (result.error) {
         // Update video to mark that transcript is not available
