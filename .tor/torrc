@@ -1,0 +1,26 @@
+# Tor configuration for YouTube Intel Scan
+
+# SOCKS proxy port
+SOCKSPort 9050
+
+# Control port for circuit refresh
+ControlPort 9051
+
+# Allow control without authentication (safe since it's local)
+CookieAuthentication 0
+
+# Faster circuit building
+CircuitBuildTimeout 5
+LearnCircuitBuildTimeout 0
+
+# Use more entry guards for better reliability
+NumEntryGuards 8
+
+# Data directory
+DataDirectory .tor/data
+
+# Log configuration
+Log notice file .tor/tor.log
+
+# Use only fast and stable nodes
+StrictNodes 0
