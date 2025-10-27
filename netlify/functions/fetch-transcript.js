@@ -1,4 +1,4 @@
-const { YoutubeTranscript } = require('youtube-transcript');
+const { Innertube } = require('youtubei.js');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
 // Cache for proxy list (to avoid hitting webshare API on every request)
@@ -20,6 +20,7 @@ async function getWebshareProxies() {
   // Return cached proxies if still valid
   const now = Date.now();
   if (proxyCache.proxies.length > 0 && (now - proxyCache.lastFetched) < proxyCache.ttl) {
+    console.log(`Using cached proxies (${proxyCache.proxies.length} available)`);
     return proxyCache.proxies;
   }
 
@@ -95,7 +96,7 @@ exports.handler = async (event) => {
 
     // Get proxies from webshare.io
     const proxies = await getWebshareProxies();
-    const maxRetries = proxies.length > 0 ? Math.min(3, proxies.length) : 3;
+    const maxRetries = proxies.length > 0 ? Math.min(3, proxies.length) : 1;
     let lastError = null;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -106,36 +107,58 @@ exports.handler = async (event) => {
         if (proxies.length > 0) {
           const proxy = proxies[attempt % proxies.length];
           const proxyAgent = new HttpsProxyAgent(proxy.url);
-          fetchOptions = { agent: proxyAgent };
+          fetchOptions = { 
+            fetch: (input, init) => {
+              return fetch(input, {
+                ...init,
+                agent: proxyAgent
+              });
+            }
+          };
           console.log(`Attempt ${attempt + 1}/${maxRetries} using proxy: ${proxy.host}:${proxy.port}`);
         } else {
-          console.log(`Attempt ${attempt + 1}/${maxRetries} without proxy`);
+          console.log(`Attempt ${attempt + 1}/${maxRetries} without proxy (set WEBSHARE_API_KEY to use proxies)`);
         }
 
-        // Fetch transcript
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId, {
-          lang: languages.split(',')[0],
-          ...fetchOptions,
-        });
+        // Initialize Innertube with proxy
+        const youtube = await Innertube.create(fetchOptions);
+        
+        // Get video info and transcript
+        const info = await youtube.getInfo(videoId);
+        const transcriptData = await info.getTranscript();
+        
+        if (!transcriptData || !transcriptData.transcript) {
+          throw new Error('No transcript available for this video');
+        }
 
-        // Format response to match Python script output
-        const fullText = transcript.map((t) => t.text).join(' ');
+        // Extract transcript content
+        const transcript = transcriptData.transcript.content;
+        const segments = transcript.body.initial_segments;
+
+        if (!segments || segments.length === 0) {
+          throw new Error('Transcript is disabled for this video');
+        }
+
+        // Format to match Python script output
+        const snippets = segments.map(segment => ({
+          text: segment.snippet.text,
+          start: segment.start_ms / 1000, // Convert ms to seconds
+          duration: segment.end_ms / 1000 - segment.start_ms / 1000,
+        }));
+
+        const fullText = snippets.map(s => s.text).join(' ');
 
         const result = {
           videoId,
           language: languages,
           languageCode: languages.split(',')[0],
           isGenerated: true,
-          snippets: transcript.map((t) => ({
-            text: t.text,
-            start: t.offset / 1000, // Convert ms to seconds
-            duration: t.duration / 1000,
-          })),
+          snippets,
           fullText,
         };
 
         console.log(
-          `Successfully fetched transcript for ${videoId} (${transcript.length} snippets)`
+          `Successfully fetched transcript for ${videoId} (${snippets.length} snippets, ${fullText.length} chars)`
         );
 
         return {
