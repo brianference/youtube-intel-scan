@@ -7,6 +7,33 @@ YouTube Intel Scan is a full-stack web application designed to extract actionabl
 I prefer detailed explanations.
 Do not make changes to the folder `server/python/`.
 
+## GitHub Deployment
+
+### How to Push to GitHub
+
+This Replit project is connected to GitHub repository: `brianference/youtube-intel-scan`
+
+**Important:** Use the `$GIT_URL` secret (already configured) instead of standard git remotes.
+
+**Quick Commands:**
+
+```bash
+# 1. Add your changes
+git add .
+
+# 2. Commit with a message
+git commit -m "Your commit message here"
+
+# 3. Push to GitHub (uses stored token)
+git push $GIT_URL
+```
+
+**Why $GIT_URL?**
+- Standard `git push origin main` won't work (authentication fails)
+- The `GIT_URL` secret contains your GitHub Personal Access Token
+- Format: `https://username:token@github.com/brianference/youtube-intel-scan`
+- This is the ONLY way to push from Replit to GitHub for this project
+
 ## System Architecture
 
 ### UI/UX Decisions
@@ -38,6 +65,29 @@ The application uses a PostgreSQL database for persistent storage, ensuring data
 - **Tailwind CSS:** Styling framework.
 - **Vite:** Build tool.
 ## Recent Changes
+
+### October 27, 2025 (Session 9 - Netlify Edge Function Proxy for Production)
+- **Implemented Netlify Edge Function proxy to bypass YouTube IP blocking**
+  - YouTube blocks cloud provider IPs (Replit, AWS, GCP) from accessing transcripts
+  - Created `netlify/edge-functions/fetch-transcript.ts` using `youtube-transcript` library from ESM
+  - Edge Function includes 3 automatic retries with exponential backoff (3s → 6s delays)
+  - Full CORS support for direct API access
+  - Proper error handling for all YouTube error types (disabled, private, unavailable videos)
+- **Smart routing with automatic fallback**
+  - Updated `server/routes.ts` to try Netlify Edge Function first
+  - Automatically falls back to local Python script if Netlify fails
+  - Uses `NETLIFY_FUNCTION_URL` environment variable (optional - graceful degradation)
+  - Detailed logging for debugging (shows which method succeeded)
+- **Deployment infrastructure**
+  - Created `netlify.toml` configuration for automatic deployment
+  - Edge Function path: `/api/transcript-proxy`
+  - Created `NETLIFY_PROXY_SETUP.md` with complete deployment instructions
+  - Includes CLI deployment and GitHub integration methods
+- **Production-ready solution**
+  - Free tier supports 3M requests/month (well beyond typical usage)
+  - Global edge network provides low latency
+  - Works in production environments where cloud IPs are blocked
+  - Successfully pushed to GitHub repository for Netlify deployment
 
 ### October 26, 2025 (Session 8 - Video Sort, Enhanced Export & Concurrent Analysis)
 - **Implemented video sort dropdown with 3 options**
