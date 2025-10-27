@@ -1,0 +1,37 @@
+~/workspace$ # 1. Make sure you're on main branch
+git checkout main
+
+# 2. Fetch the Claude Code branch from GitHub
+git fetch github claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt
+
+# 3. Pull and merge the changes
+git pull github claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt --allow-unrelated-histories
+Already on 'main'
+remote: Enumerating objects: 19, done.
+remote: Counting objects: 100% (19/19), done.
+remote: Compressing objects: 100% (8/8), done.
+remote: Total 13 (delta 5), reused 13 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (13/13), 11.09 KiB | 811.00 KiB/s, done.
+From https://github.com/brianference/youtube-intel-scan
+ * branch            claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt -> FETCH_HEAD
+ * [new branch]      claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt -> github/claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt
+From https://github.com/brianference/youtube-intel-scan
+ * branch            claude/download-youtube-intel-scan-011CUWnFNsLif3kvzCvwFKvt -> FETCH_HEAD
+Updating a80d6c0..9e59cfe
+Fast-forward
+ .replit                            |   2 +
+ DEPLOYMENT_NOTES.md                | 320 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ TOR_SETUP.md                       | 171 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ check-tor.sh                       |  55 ++++++++++++++++++++++++
+ pyproject.toml                     |   1 +
+ server/python/fetch_transcripts.py | 168 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++---------------
+ setup-tor.sh                       |  63 +++++++++++++++++++++++++++
+ start-tor.sh                       |  38 ++++++++++++++++
+ stop-tor.sh                        |  24 +++++++++++
+ 9 files changed, 807 insertions(+), 35 deletions(-)
+ create mode 100644 DEPLOYMENT_NOTES.md
+ create mode 100644 TOR_SETUP.md
+ create mode 100755 check-tor.sh
+ create mode 100755 setup-tor.sh
+ create mode 100755 start-tor.sh
+ create mode 100755 stop-tor.sh
