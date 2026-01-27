@@ -1027,6 +1027,103 @@ ${transcript.fullText}
     }
   });
 
+  // POST /api/export/video-insights/:videoId - Export insights for a specific video as markdown
+  app.post("/api/export/video-insights/:videoId", async (req, res) => {
+    try {
+      const { videoId } = req.params;
+      
+      // Get the video
+      const video = await storage.getVideoByVideoId(videoId);
+      if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+
+      // Get insights for this video
+      const insights = await storage.getInsightsByVideoId(videoId);
+      
+      if (insights.length === 0) {
+        return res.status(404).json({ error: 'No insights found for this video' });
+      }
+
+      // Get channel info
+      const channel = await storage.getChannelByChannelId(video.channelId);
+
+      // Generate markdown
+      let markdown = `# PM Insights: ${video.title}\n\n`;
+      markdown += `**Channel:** ${channel?.name || 'Unknown'}\n`;
+      markdown += `**Video:** [${video.title}](https://www.youtube.com/watch?v=${video.videoId})\n`;
+      markdown += `**Published:** ${new Date(video.publishedAt).toLocaleDateString()}\n`;
+      markdown += `**Total Insights:** ${insights.length}\n`;
+      markdown += `**Export Date:** ${new Date().toLocaleDateString()}\n\n`;
+      markdown += `---\n\n`;
+
+      // Group insights by category
+      const insightsByCategory: Record<string, typeof insights> = {};
+      insights.forEach(insight => {
+        const category = insight.category || 'Other';
+        if (!insightsByCategory[category]) {
+          insightsByCategory[category] = [];
+        }
+        insightsByCategory[category].push(insight);
+      });
+
+      // Generate content by category
+      Object.entries(insightsByCategory).forEach(([category, categoryInsights]) => {
+        markdown += `## ${category}\n\n`;
+        
+        categoryInsights.forEach((insight, index) => {
+          markdown += `### ${index + 1}. ${insight.insight}\n\n`;
+          
+          if (insight.transcriptNugget) {
+            markdown += `**Key Quote:**\n> "${insight.transcriptNugget}"\n\n`;
+          }
+          
+          if (insight.whyItMatters) {
+            markdown += `**Why It Matters:**\n${insight.whyItMatters}\n\n`;
+          }
+          
+          if (insight.actionableSteps && insight.actionableSteps.length > 0) {
+            markdown += `**Action Steps:**\n`;
+            insight.actionableSteps.forEach((step, i) => {
+              markdown += `${i + 1}. ${step}\n`;
+            });
+            markdown += `\n`;
+          }
+          
+          if (insight.riceScore) {
+            const rice = insight.riceScore;
+            markdown += `**RICE Score:** ${rice.total || 'N/A'}\n`;
+            markdown += `- Reach: ${rice.reach}, Impact: ${rice.impact}, Confidence: ${rice.confidence}, Effort: ${rice.effort}\n\n`;
+          }
+          
+          if (insight.toolsNeeded && insight.toolsNeeded.length > 0) {
+            markdown += `**Tools Needed:** ${insight.toolsNeeded.join(', ')}\n\n`;
+          }
+          
+          if (insight.examplePrompt) {
+            markdown += `**Example Prompt:**\n\`\`\`\n${insight.examplePrompt}\n\`\`\`\n\n`;
+          }
+          
+          if (insight.weekTieIn) {
+            markdown += `**Week Tie-In:** ${insight.weekTieIn}\n\n`;
+          }
+          
+          markdown += `---\n\n`;
+        });
+      });
+
+      // Send file
+      const safeTitle = video.title.replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 50);
+      const filename = `insights_${safeTitle}_${Date.now()}.md`;
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(markdown);
+    } catch (error: any) {
+      console.error('Error exporting video insights:', error);
+      res.status(500).json({ error: error.message || 'Failed to export video insights' });
+    }
+  });
+
   // ============================================================================
   // CLIENT-SIDE TRANSCRIPT FETCHING SUPPORT
   // These endpoints act as CORS proxies to allow browser-based transcript fetching

@@ -110,6 +110,40 @@ export default function Insights() {
     }
   };
 
+  const handleExportVideoInsights = async (videoId: string) => {
+    try {
+      const response = await fetch(`/api/export/video-insights/${videoId}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export video insights');
+      }
+
+      // Download file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `video_insights_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export successful",
+        description: `Exported insights for this video to markdown file`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export video insights",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getChannelName = (videoId: string) => {
     const video = videos.find(v => v.videoId === videoId);
     if (!video) return "Unknown Channel";
@@ -172,6 +206,15 @@ export default function Insights() {
         <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
           <span className="text-sm text-muted-foreground">Showing insights for:</span>
           <span className="text-sm font-medium truncate flex-1">{filteredVideoTitle}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleExportVideoInsights(videoFilter)}
+            data-testid="button-export-video-insights"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Export
+          </Button>
           <Button
             size="sm"
             variant="ghost"
