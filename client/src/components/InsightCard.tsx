@@ -12,8 +12,7 @@ import {
   Target,
   CheckCircle2,
   Zap,
-  Copy,
-  Calendar
+  Copy
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +39,6 @@ interface InsightCardProps {
   } | null;
   toolsNeeded?: string[] | null;
   examplePrompt?: string | null;
-  weekTieIn?: string | null;
 }
 
 export function InsightCard({
@@ -57,7 +55,6 @@ export function InsightCard({
   riceScore,
   toolsNeeded,
   examplePrompt,
-  weekTieIn,
 }: InsightCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const { toast } = useToast();
@@ -116,12 +113,6 @@ export function InsightCard({
                 {category && (
                   <Badge variant="secondary" className="shrink-0">
                     {category}
-                  </Badge>
-                )}
-                {weekTieIn && (
-                  <Badge className="shrink-0 bg-purple-500/10 text-purple-700 dark:text-purple-400">
-                    <Calendar className="mr-1 h-3 w-3" />
-                    {weekTieIn}
                   </Badge>
                 )}
                 {riceScore?.total && (

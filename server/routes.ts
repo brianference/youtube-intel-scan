@@ -989,12 +989,6 @@ ${transcript.fullText}
               markdown += `\`\`\`\n${insight.examplePrompt}\n\`\`\`\n\n`;
             }
             
-            // Week tie-in
-            if (insight.weekTieIn) {
-              markdown += `##### When to Apply\n\n`;
-              markdown += `${insight.weekTieIn}\n\n`;
-            }
-            
             markdown += `---\n\n`;
           });
 
@@ -1007,11 +1001,7 @@ ${transcript.fullText}
       Object.entries(insightsByCategory).forEach(([category, insights]) => {
         markdown += `### ${category}\n\n`;
         insights.forEach((insight, index) => {
-          markdown += `${index + 1}. **${insight.insight}**`;
-          if (insight.weekTieIn) {
-            markdown += ` _(${insight.weekTieIn})_`;
-          }
-          markdown += `\n\n`;
+          markdown += `${index + 1}. **${insight.insight}**\n\n`;
         });
         markdown += `\n`;
       });
@@ -1102,10 +1092,6 @@ ${transcript.fullText}
           
           if (insight.examplePrompt) {
             markdown += `**Example Prompt:**\n\`\`\`\n${insight.examplePrompt}\n\`\`\`\n\n`;
-          }
-          
-          if (insight.weekTieIn) {
-            markdown += `**Week Tie-In:** ${insight.weekTieIn}\n\n`;
           }
           
           markdown += `---\n\n`;
@@ -1208,10 +1194,6 @@ ${transcript.fullText}
         
         if (insight.examplePrompt) {
           markdown += `**Example Prompt:**\n\`\`\`\n${insight.examplePrompt}\n\`\`\`\n\n`;
-        }
-        
-        if (insight.weekTieIn) {
-          markdown += `**Week Tie-In:** ${insight.weekTieIn}\n\n`;
         }
         
         markdown += `---\n\n`;

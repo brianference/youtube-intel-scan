@@ -250,8 +250,7 @@ export default function Insights() {
               riceScore={insight.riceScore}
               toolsNeeded={insight.toolsNeeded}
               examplePrompt={insight.examplePrompt}
-              weekTieIn={insight.weekTieIn}
-              onViewVideo={() => {
+                            onViewVideo={() => {
                 if (insight.videoId) {
                   window.open(`https://www.youtube.com/watch?v=${insight.videoId}`, '_blank');
                 }
