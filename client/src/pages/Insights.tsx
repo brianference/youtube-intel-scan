@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearch, useLocation } from "wouter";
 import { InsightCard } from "@/components/InsightCard";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Lightbulb, Search, Filter, Download } from "lucide-react";
-import type { Insight, Video } from "@shared/schema";
+import { Lightbulb, Search, Filter, Download, X } from "lucide-react";
+import type { Insight, Video, Channel } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 interface InsightWithVideo extends Insight {
@@ -17,6 +18,14 @@ export default function Insights() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const { toast } = useToast();
+  const search = useSearch();
+  const [, setLocation] = useLocation();
+  
+  // Parse video filter from URL query parameter
+  const videoFilter = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get('video') || null;
+  }, [search]);
 
   const { data: insights = [], isLoading: insightsLoading } = useQuery<Insight[]>({
     queryKey: ['/api/insights'],
@@ -26,7 +35,7 @@ export default function Insights() {
     queryKey: ['/api/videos'],
   });
 
-  const { data: channels = [] } = useQuery({
+  const { data: channels = [] } = useQuery<Channel[]>({
     queryKey: ['/api/channels'],
   });
 
@@ -47,8 +56,16 @@ export default function Insights() {
     const matchesSearch = insight.insight.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          insight.video?.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "all" || insight.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesVideo = !videoFilter || insight.videoId === videoFilter;
+    return matchesSearch && matchesCategory && matchesVideo;
   });
+  
+  // Get the video title for display when filtering
+  const filteredVideoTitle = videoFilter ? videos.find(v => v.videoId === videoFilter)?.title : null;
+  
+  const clearVideoFilter = () => {
+    setLocation('/insights');
+  };
 
   const handleExport = async () => {
     if (insights.length === 0) {
@@ -96,7 +113,7 @@ export default function Insights() {
   const getChannelName = (videoId: string) => {
     const video = videos.find(v => v.videoId === videoId);
     if (!video) return "Unknown Channel";
-    const channel = channels.find((c: any) => c.channelId === video.channelId);
+    const channel = channels.find(c => c.channelId === video.channelId);
     return channel?.name || "Unknown Channel";
   };
 
@@ -147,6 +164,23 @@ export default function Insights() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {/* Video Filter Indicator */}
+      {videoFilter && filteredVideoTitle && (
+        <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+          <span className="text-sm text-muted-foreground">Showing insights for:</span>
+          <span className="text-sm font-medium truncate flex-1">{filteredVideoTitle}</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearVideoFilter}
+            data-testid="button-clear-video-filter"
+          >
+            <X className="h-4 w-4" />
+            Clear filter
+          </Button>
         </div>
       )}
 

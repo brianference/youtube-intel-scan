@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
-import { Search, Download, FileText, ExternalLink } from "lucide-react";
+import { Search, Download, FileText, ExternalLink, Lightbulb } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Video } from "@shared/schema";
 
@@ -137,17 +138,12 @@ export default function Transcripts() {
                             Analyzed
                           </Badge>
                         )}
-                        {video.transcriptLanguage && (
-                          <Badge variant="outline" className="text-xs">
-                            {video.transcriptLanguage}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
@@ -157,6 +153,19 @@ export default function Transcripts() {
                       <Download className="mr-1 h-3 w-3" />
                       Export Transcript
                     </Button>
+                    {video.analyzed && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        asChild
+                        data-testid={`button-view-insights-${video.id}`}
+                      >
+                        <Link href={`/insights?video=${video.videoId}`}>
+                          <Lightbulb className="mr-1 h-3 w-3" />
+                          View Insights
+                        </Link>
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
