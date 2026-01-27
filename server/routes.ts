@@ -72,6 +72,215 @@ function setCachedResponse(key: string, data: string): void {
   proxyCache.set(key, { data, timestamp: Date.now() });
 }
 
+// ============================================
+// Cloudflare Worker Transcript Fetching
+// ============================================
+
+interface CaptionTrack {
+  baseUrl: string;
+  name: { simpleText: string };
+  languageCode: string;
+  isTranslatable: boolean;
+  kind?: string; // 'asr' for auto-generated
+}
+
+interface TranscriptSnippet {
+  text: string;
+  start: number;
+  duration: number;
+}
+
+/**
+ * Extract caption track information from YouTube page HTML
+ */
+function extractCaptionTracks(html: string): CaptionTrack[] {
+  try {
+    // Look for the captions data in the page
+    const captionsRegex = /"captions":\s*(\{[\s\S]*?"captionTracks":\s*\[[\s\S]*?\][\s\S]*?\})/;
+    const match = html.match(captionsRegex);
+
+    if (!match) {
+      // Try alternative pattern
+      const altRegex = /captionTracks":\s*(\[[\s\S]*?\])/;
+      const altMatch = html.match(altRegex);
+
+      if (altMatch) {
+        try {
+          return JSON.parse(altMatch[1]);
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    }
+
+    try {
+      const captionsData = JSON.parse(match[1]);
+      return captionsData.playerCaptionsTracklistRenderer?.captionTracks || [];
+    } catch {
+      return [];
+    }
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Select the best caption track based on language preference
+ */
+function selectBestCaptionTrack(tracks: CaptionTrack[], preferredLanguages: string[]): CaptionTrack | null {
+  // First, try to find a manual caption in preferred languages
+  for (const lang of preferredLanguages) {
+    const manualTrack = tracks.find(
+      t => t.languageCode.startsWith(lang) && t.kind !== 'asr'
+    );
+    if (manualTrack) return manualTrack;
+  }
+
+  // Fall back to auto-generated in preferred languages
+  for (const lang of preferredLanguages) {
+    const autoTrack = tracks.find(
+      t => t.languageCode.startsWith(lang) && t.kind === 'asr'
+    );
+    if (autoTrack) return autoTrack;
+  }
+
+  // Fall back to any manual caption
+  const anyManual = tracks.find(t => t.kind !== 'asr');
+  if (anyManual) return anyManual;
+
+  // Fall back to any caption
+  return tracks[0] || null;
+}
+
+/**
+ * Decode HTML entities in transcript text
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    .replace(/\n/g, ' ')
+    .trim();
+}
+
+/**
+ * Parse YouTube's transcript XML format (server-side version)
+ */
+function parseTranscriptXml(xml: string): TranscriptSnippet[] {
+  const snippets: TranscriptSnippet[] = [];
+
+  // Use regex to parse XML (no DOM available on server)
+  const textRegex = /<text start="([^"]*)" dur="([^"]*)"[^>]*>([^<]*)<\/text>/g;
+  let match;
+
+  while ((match = textRegex.exec(xml)) !== null) {
+    const start = parseFloat(match[1] || '0');
+    const duration = parseFloat(match[2] || '0');
+    const text = decodeHtmlEntities(match[3] || '');
+
+    if (text.trim()) {
+      snippets.push({ text: text.trim(), start, duration });
+    }
+  }
+
+  return snippets;
+}
+
+/**
+ * Fetch transcript via Cloudflare Worker
+ */
+async function fetchTranscriptViaCloudflare(
+  videoId: string, 
+  preferredLanguages: string[] = ['en']
+): Promise<{ text: string; language: string; languageCode: string; snippets: TranscriptSnippet[] } | null> {
+  const cloudflareUrl = process.env.CLOUDFLARE_WORKER_URL;
+  
+  if (!cloudflareUrl) {
+    console.log('[Cloudflare] No CLOUDFLARE_WORKER_URL configured, skipping');
+    return null;
+  }
+
+  console.log(`[Cloudflare] Fetching transcript for video: ${videoId}`);
+
+  try {
+    // Step 1: Fetch the YouTube page via Cloudflare Worker
+    const pageResponse = await fetch(`${cloudflareUrl}/youtube-page?videoId=${videoId}`, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!pageResponse.ok) {
+      const errorText = await pageResponse.text();
+      console.warn(`[Cloudflare] Failed to fetch page (${pageResponse.status}): ${errorText}`);
+      return null;
+    }
+
+    const html = await pageResponse.text();
+
+    // Step 2: Extract caption tracks from the HTML
+    const captionTracks = extractCaptionTracks(html);
+
+    if (!captionTracks || captionTracks.length === 0) {
+      console.warn('[Cloudflare] No caption tracks found in page');
+      return null;
+    }
+
+    console.log(`[Cloudflare] Found ${captionTracks.length} caption track(s)`);
+
+    // Step 3: Select best track
+    const selectedTrack = selectBestCaptionTrack(captionTracks, preferredLanguages);
+
+    if (!selectedTrack) {
+      console.warn(`[Cloudflare] No caption track for languages: ${preferredLanguages.join(', ')}`);
+      return null;
+    }
+
+    console.log(`[Cloudflare] Selected track: ${selectedTrack.languageCode} (${selectedTrack.kind === 'asr' ? 'auto-generated' : 'manual'})`);
+
+    // Step 4: Fetch transcript XML via Cloudflare Worker
+    const transcriptResponse = await fetch(
+      `${cloudflareUrl}/youtube-transcript?url=${encodeURIComponent(selectedTrack.baseUrl)}`,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    if (!transcriptResponse.ok) {
+      const errorText = await transcriptResponse.text();
+      console.warn(`[Cloudflare] Failed to fetch transcript (${transcriptResponse.status}): ${errorText}`);
+      return null;
+    }
+
+    const transcriptXml = await transcriptResponse.text();
+
+    // Step 5: Parse the transcript XML
+    const snippets = parseTranscriptXml(transcriptXml);
+
+    if (snippets.length === 0) {
+      console.warn('[Cloudflare] Transcript was empty or could not be parsed');
+      return null;
+    }
+
+    // Step 6: Build full text
+    const fullText = snippets.map(s => s.text).join(' ');
+
+    console.log(`[Cloudflare] Successfully fetched transcript: ${snippets.length} snippets, ${fullText.length} chars`);
+
+    return {
+      text: fullText,
+      language: selectedTrack.name?.simpleText || selectedTrack.languageCode,
+      languageCode: selectedTrack.languageCode,
+      snippets
+    };
+
+  } catch (error: any) {
+    console.warn(`[Cloudflare] Error: ${error.message}`);
+    return null;
+  }
+}
+
 // Helper function to run Python scripts
 function runPythonScript(scriptName: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -331,35 +540,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ transcript: existingTranscript, message: 'Transcript already exists' });
       }
 
-      // Fetch transcript - try Netlify proxy first, fall back to Python
+      // Fetch transcript - try Cloudflare Worker first, then Netlify, then Python
       const languages = req.body.languages || 'en';
+      const languageList = languages.split(',').map((l: string) => l.trim());
       let result;
 
-      // Try Netlify Edge Function first (if configured)
-      const netlifyUrl = process.env.NETLIFY_FUNCTION_URL;
-      if (netlifyUrl) {
-        try {
-          console.log(`Fetching transcript via Netlify proxy: ${video.videoId}`);
-          const response = await fetch(
-            `${netlifyUrl}?videoId=${encodeURIComponent(video.videoId)}&languages=${encodeURIComponent(languages)}`,
-            { method: 'GET', headers: { 'Content-Type': 'application/json' } }
-          );
+      // Try Cloudflare Worker first (most reliable - Cloudflare IPs not blocked by YouTube)
+      const cloudflareResult = await fetchTranscriptViaCloudflare(video.videoId, languageList);
+      if (cloudflareResult) {
+        result = {
+          videoId: video.videoId,
+          text: cloudflareResult.text,
+          language: cloudflareResult.language,
+          languageCode: cloudflareResult.languageCode,
+          snippets: cloudflareResult.snippets,
+        };
+        console.log(`Successfully fetched transcript via Cloudflare Worker for ${video.videoId}`);
+      }
 
-          if (response.ok) {
-            result = await response.json();
-            console.log(`Successfully fetched transcript via Netlify for ${video.videoId}`);
-          } else {
-            const error = await response.json();
-            console.warn(`Netlify proxy failed (${response.status}): ${error.error}. Falling back to Python.`);
+      // Try Netlify Edge Function second (if configured and Cloudflare failed)
+      if (!result) {
+        const netlifyUrl = process.env.NETLIFY_FUNCTION_URL;
+        if (netlifyUrl) {
+          try {
+            console.log(`Fetching transcript via Netlify proxy: ${video.videoId}`);
+            const response = await fetch(
+              `${netlifyUrl}?videoId=${encodeURIComponent(video.videoId)}&languages=${encodeURIComponent(languages)}`,
+              { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+            );
+
+            if (response.ok) {
+              result = await response.json();
+              console.log(`Successfully fetched transcript via Netlify for ${video.videoId}`);
+            } else {
+              const error = await response.json();
+              console.warn(`Netlify proxy failed (${response.status}): ${error.error}. Falling back to Python.`);
+              result = null;
+            }
+          } catch (error: any) {
+            console.warn(`Netlify proxy error: ${error.message}. Falling back to Python.`);
             result = null;
           }
-        } catch (error: any) {
-          console.warn(`Netlify proxy error: ${error.message}. Falling back to Python.`);
-          result = null;
         }
       }
 
-      // Fallback to Python script if Netlify didn't work
+      // Fallback to Python script if all else failed
       if (!result) {
         console.log(`Fetching transcript via Python script: ${video.videoId}`);
         const { stdout } = await runPythonScript('fetch_transcripts.py', [video.videoId, languages]);
