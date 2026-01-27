@@ -28,6 +28,10 @@ interface CaptionTrack {
   kind?: string; // 'asr' for auto-generated
 }
 
+// Cloudflare Worker URL - set via environment or hardcode after deployment
+// This bypasses YouTube's IP blocking since Cloudflare IPs are not blocked
+const CLOUDFLARE_WORKER_URL = import.meta.env.VITE_CLOUDFLARE_WORKER_URL || '';
+
 // Rate limiting configuration
 const RATE_LIMIT = {
   minDelayBetweenRequests: 2000, // 2 seconds minimum between requests
@@ -336,6 +340,106 @@ function decodeHtmlEntities(text: string): string {
 }
 
 /**
+ * PRIMARY METHOD: Fetch transcript via Cloudflare Worker
+ * Cloudflare IPs are not blocked by YouTube - this is the most reliable method
+ */
+export async function fetchTranscriptViaCloudflare(videoId: string, preferredLanguages: string[] = ['en']): Promise<TranscriptResult> {
+  if (!CLOUDFLARE_WORKER_URL) {
+    throw new Error('Cloudflare Worker URL not configured');
+  }
+
+  console.log(`[TranscriptFetcher:Cloudflare] Starting fetch for video: ${videoId}`);
+
+  try {
+    await waitForRateLimit();
+
+    // Step 1: Fetch video page via Cloudflare Worker
+    const pageResponse = await fetchWithRetry(`${CLOUDFLARE_WORKER_URL}/youtube-page?videoId=${videoId}`);
+
+    if (!pageResponse.ok) {
+      const errorData = await pageResponse.json().catch(() => ({}));
+      throw new Error(errorData.error || `Cloudflare Worker returned ${pageResponse.status}`);
+    }
+
+    const html = await pageResponse.text();
+
+    // Step 2: Extract caption tracks
+    const captionTracks = extractCaptionTracksFromHtml(html);
+
+    if (!captionTracks || captionTracks.length === 0) {
+      throw new Error('No captions found via Cloudflare Worker');
+    }
+
+    console.log(`[TranscriptFetcher:Cloudflare] Found ${captionTracks.length} caption track(s)`);
+
+    // Step 3: Select best track
+    const selectedTrack = selectBestCaptionTrack(captionTracks, preferredLanguages);
+
+    if (!selectedTrack) {
+      throw new Error(`No captions found for languages: ${preferredLanguages.join(', ')}`);
+    }
+
+    console.log(`[TranscriptFetcher:Cloudflare] Selected track: ${selectedTrack.languageCode}`);
+
+    // Step 4: Fetch transcript via Cloudflare Worker
+    await sleep(300);
+    const transcriptResponse = await fetchWithRetry(
+      `${CLOUDFLARE_WORKER_URL}/youtube-transcript?url=${encodeURIComponent(selectedTrack.baseUrl)}`
+    );
+
+    if (!transcriptResponse.ok) {
+      throw new Error('Failed to fetch transcript via Cloudflare Worker');
+    }
+
+    const transcriptXml = await transcriptResponse.text();
+    const snippets = parseTranscriptXml(transcriptXml);
+
+    if (snippets.length === 0) {
+      throw new Error('Transcript was empty');
+    }
+
+    const fullText = snippets.map(s => s.text).join(' ');
+
+    console.log(`[TranscriptFetcher:Cloudflare] Success: ${snippets.length} snippets`);
+
+    return {
+      videoId,
+      language: selectedTrack.name?.simpleText || selectedTrack.languageCode,
+      languageCode: selectedTrack.languageCode,
+      isGenerated: selectedTrack.kind === 'asr',
+      snippets,
+      fullText,
+    };
+
+  } catch (error: any) {
+    console.error('[TranscriptFetcher:Cloudflare] Failed:', error);
+    throw new Error(error.message || 'Cloudflare Worker fetch failed');
+  }
+}
+
+// Helper to extract caption tracks from HTML (reusable)
+function extractCaptionTracksFromHtml(html: string): CaptionTrack[] {
+  try {
+    const captionsRegex = /"captions":\s*(\{[\s\S]*?"captionTracks":\s*\[[\s\S]*?\][\s\S]*?\})/;
+    const match = html.match(captionsRegex);
+
+    if (!match) {
+      const altRegex = /captionTracks":\s*(\[[\s\S]*?\])/;
+      const altMatch = html.match(altRegex);
+      if (altMatch) {
+        try { return JSON.parse(altMatch[1]); } catch { return []; }
+      }
+      return [];
+    }
+
+    try {
+      const captionsData = JSON.parse(match[1]);
+      return captionsData.playerCaptionsTracklistRenderer?.captionTracks || [];
+    } catch { return []; }
+  } catch { return []; }
+}
+
+/**
  * BACKUP METHOD: Fetch transcript via YouTube's innertube API
  * This is YouTube's internal API used by their mobile/TV apps
  */
@@ -468,10 +572,12 @@ export async function fetchTranscriptViaYouTubeAPI(videoId: string, preferredLan
 
 /**
  * Master fetch function with multiple fallbacks
- * Order: 1) Client-side page scrape, 2) Innertube API, 3) YouTube Data API
+ * Order: 1) Cloudflare Worker (best), 2) Client-side scrape, 3) Innertube API, 4) YouTube Data API
  */
 export async function fetchTranscriptWithFallbacks(videoId: string, preferredLanguages: string[] = ['en']): Promise<TranscriptResult> {
   const methods = [
+    // Cloudflare Worker is most reliable - their IPs aren't blocked
+    ...(CLOUDFLARE_WORKER_URL ? [{ name: 'cloudflare', fn: () => fetchTranscriptViaCloudflare(videoId, preferredLanguages) }] : []),
     { name: 'client-side', fn: () => fetchTranscriptClientSide(videoId, preferredLanguages) },
     { name: 'innertube', fn: () => fetchTranscriptViaInnertube(videoId, preferredLanguages) },
     { name: 'youtube-api', fn: () => fetchTranscriptViaYouTubeAPI(videoId, preferredLanguages) },
