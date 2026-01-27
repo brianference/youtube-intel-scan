@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/EmptyState";
-import { Search, Download, FileText, ExternalLink, Lightbulb } from "lucide-react";
+import { Search, Download, FileText, ExternalLink, Lightbulb, FileDown } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Video } from "@shared/schema";
@@ -54,6 +54,41 @@ export default function Transcripts() {
       toast({
         title: "Export failed",
         description: error.message || "Failed to export transcript",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownloadInsights = async (youtubeVideoId: string, title: string) => {
+    try {
+      const response = await fetch(`/api/export/video-insights-sorted/${youtubeVideoId}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to download insights');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `insights_${filename}_${Date.now()}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Download successful",
+        description: "Insights exported to markdown file",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error.message || "Failed to download insights",
         variant: "destructive",
       });
     }
@@ -154,17 +189,28 @@ export default function Transcripts() {
                       Export Transcript
                     </Button>
                     {video.analyzed && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        data-testid={`button-view-insights-${video.id}`}
-                      >
-                        <Link href={`/insights?video=${video.videoId}`}>
-                          <Lightbulb className="mr-1 h-3 w-3" />
-                          View Insights
-                        </Link>
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                          data-testid={`button-view-insights-${video.id}`}
+                        >
+                          <Link href={`/insights?video=${video.videoId}`}>
+                            <Lightbulb className="mr-1 h-3 w-3" />
+                            View Insights
+                          </Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadInsights(video.videoId, video.title)}
+                          data-testid={`button-download-insights-${video.id}`}
+                        >
+                          <FileDown className="mr-1 h-3 w-3" />
+                          Download Insights
+                        </Button>
+                      </>
                     )}
                     <Button
                       size="sm"
