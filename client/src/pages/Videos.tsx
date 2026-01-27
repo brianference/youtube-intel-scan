@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Download, Sparkles, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { fetchTranscriptClientSide } from "@/lib/transcriptFetcher";
 import type { Video, Channel } from "@shared/schema";
 
 export default function Videos() {
@@ -83,9 +84,45 @@ export default function Videos() {
   });
 
   const downloadTranscriptMutation = useMutation({
-    mutationFn: async (videoId: string) => {
-      const response = await apiRequest('POST', `/api/videos/${videoId}/transcript`, undefined);
-      return await response.json();
+    mutationFn: async (videoDbId: string) => {
+      // Find the video to get its YouTube videoId
+      const video = videos.find(v => v.id === videoDbId);
+      if (!video) {
+        throw new Error('Video not found');
+      }
+
+      console.log(`[TranscriptDownload] Starting client-side fetch for: ${video.videoId}`);
+
+      try {
+        // Step 1: Fetch transcript using client-side method (uses user's IP via proxy)
+        const transcriptData = await fetchTranscriptClientSide(video.videoId, ['en', 'en-US', 'en-GB']);
+
+        console.log(`[TranscriptDownload] Client-side fetch successful, storing transcript...`);
+
+        // Step 2: Store the transcript on the server
+        const storeResponse = await apiRequest('POST', `/api/videos/${videoDbId}/transcript/store`, transcriptData);
+
+        if (!storeResponse.ok) {
+          const errorData = await storeResponse.json();
+          throw new Error(errorData.error || 'Failed to store transcript');
+        }
+
+        return await storeResponse.json();
+
+      } catch (clientError: any) {
+        console.warn(`[TranscriptDownload] Client-side fetch failed: ${clientError.message}`);
+        console.log(`[TranscriptDownload] Falling back to server-side fetch...`);
+
+        // Fallback: Try server-side fetching (may work if server has different IP/proxy)
+        const response = await apiRequest('POST', `/api/videos/${videoDbId}/transcript`, undefined);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to download transcript');
+        }
+
+        return await response.json();
+      }
     },
     onMutate: (videoId: string) => {
       setDownloadingVideoId(videoId);
@@ -95,14 +132,14 @@ export default function Videos() {
       queryClient.invalidateQueries({ queryKey: ['/api/videos'] });
       toast({
         title: "Transcript downloaded",
-        description: `Transcript available in ${data.transcript.language}`,
+        description: `Transcript available in ${data.transcript?.language || 'English'}`,
       });
     },
     onError: (error: any) => {
       setDownloadingVideoId(null);
       toast({
-        title: "Error",
-        description: error.message || "Failed to download transcript",
+        title: "Error downloading transcript",
+        description: error.message || "Failed to download transcript. YouTube may be blocking requests.",
         variant: "destructive",
       });
     },

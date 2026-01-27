@@ -5,6 +5,72 @@ import { spawn } from "child_process";
 import { insertChannelSchema, insertVideoSchema, insertTranscriptSchema, insertInsightSchema } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+// Optional residential proxy support via environment variable
+// Format: http://user:pass@proxy.example.com:port
+const RESIDENTIAL_PROXY = process.env.RESIDENTIAL_PROXY_URL;
+
+// Rate limiting for proxy requests
+const proxyRateLimiter = {
+  lastRequestTime: 0,
+  minDelay: 1500, // 1.5 seconds between requests
+  requestCount: 0,
+  resetTime: Date.now(),
+  maxRequestsPerMinute: 20,
+};
+
+async function waitForProxyRateLimit(): Promise<void> {
+  const now = Date.now();
+
+  // Reset counter every minute
+  if (now - proxyRateLimiter.resetTime > 60000) {
+    proxyRateLimiter.requestCount = 0;
+    proxyRateLimiter.resetTime = now;
+  }
+
+  // Check if we've exceeded rate limit
+  if (proxyRateLimiter.requestCount >= proxyRateLimiter.maxRequestsPerMinute) {
+    const waitTime = 60000 - (now - proxyRateLimiter.resetTime);
+    console.log(`[ProxyRateLimit] Max requests reached, waiting ${waitTime}ms`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+    proxyRateLimiter.requestCount = 0;
+    proxyRateLimiter.resetTime = Date.now();
+  }
+
+  // Enforce minimum delay between requests
+  const timeSinceLastRequest = now - proxyRateLimiter.lastRequestTime;
+  if (timeSinceLastRequest < proxyRateLimiter.minDelay) {
+    const waitTime = proxyRateLimiter.minDelay - timeSinceLastRequest;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+
+  proxyRateLimiter.lastRequestTime = Date.now();
+  proxyRateLimiter.requestCount++;
+}
+
+// Simple in-memory cache for YouTube responses (5 minute TTL)
+const proxyCache = new Map<string, { data: string; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedResponse(key: string): string | null {
+  const cached = proxyCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`[ProxyCache] Cache hit for ${key.substring(0, 50)}...`);
+    return cached.data;
+  }
+  proxyCache.delete(key);
+  return null;
+}
+
+function setCachedResponse(key: string, data: string): void {
+  // Limit cache size
+  if (proxyCache.size > 100) {
+    const oldestKey = proxyCache.keys().next().value;
+    if (oldestKey) proxyCache.delete(oldestKey);
+  }
+  proxyCache.set(key, { data, timestamp: Date.now() });
+}
 
 // Helper function to run Python scripts
 function runPythonScript(scriptName: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
@@ -706,6 +772,193 @@ ${transcript.fullText}
     } catch (error: any) {
       console.error('Error exporting all insights:', error);
       res.status(500).json({ error: error.message || 'Failed to export all insights' });
+    }
+  });
+
+  // ============================================================================
+  // CLIENT-SIDE TRANSCRIPT FETCHING SUPPORT
+  // These endpoints act as CORS proxies to allow browser-based transcript fetching
+  // ============================================================================
+
+  // GET /api/proxy/youtube-page - Fetch YouTube video page for caption extraction
+  app.get("/api/proxy/youtube-page", async (req, res) => {
+    try {
+      const { videoId } = req.query;
+
+      if (!videoId || typeof videoId !== 'string') {
+        return res.status(400).json({ error: 'videoId query parameter is required' });
+      }
+
+      // Check cache first
+      const cacheKey = `page:${videoId}`;
+      const cached = getCachedResponse(cacheKey);
+      if (cached) {
+        return res.send(cached);
+      }
+
+      // Rate limit
+      await waitForProxyRateLimit();
+
+      const url = `https://www.youtube.com/watch?v=${videoId}`;
+      console.log(`[ProxyYouTube] Fetching video page: ${videoId}`);
+
+      const fetchOptions: RequestInit = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      };
+
+      // Use residential proxy if configured
+      if (RESIDENTIAL_PROXY) {
+        console.log(`[ProxyYouTube] Using residential proxy`);
+        const agent = new HttpsProxyAgent(RESIDENTIAL_PROXY);
+        (fetchOptions as any).agent = agent;
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      if (!response.ok) {
+        console.error(`[ProxyYouTube] YouTube returned ${response.status}`);
+        return res.status(response.status).json({ error: `YouTube returned ${response.status}` });
+      }
+
+      const html = await response.text();
+
+      // Verify we got valid YouTube page (not a block/captcha page)
+      if (html.includes('accounts.google.com/ServiceLogin') || html.includes('consent.youtube.com')) {
+        console.error('[ProxyYouTube] YouTube returned consent/login page - IP may be flagged');
+        return res.status(403).json({ error: 'YouTube requires consent/login - try again later or use residential proxy' });
+      }
+
+      // Cache the response
+      setCachedResponse(cacheKey, html);
+
+      res.send(html);
+    } catch (error: any) {
+      console.error('[ProxyYouTube] Error fetching video page:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch video page' });
+    }
+  });
+
+  // GET /api/proxy/youtube-transcript - Fetch transcript XML from YouTube
+  app.get("/api/proxy/youtube-transcript", async (req, res) => {
+    try {
+      const { url } = req.query;
+
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'url query parameter is required' });
+      }
+
+      // Validate URL is a YouTube timedtext URL
+      if (!url.includes('youtube.com') && !url.includes('googlevideo.com')) {
+        return res.status(400).json({ error: 'Invalid transcript URL' });
+      }
+
+      // Check cache first
+      const cacheKey = `transcript:${url}`;
+      const cached = getCachedResponse(cacheKey);
+      if (cached) {
+        return res.type('text/xml').send(cached);
+      }
+
+      // Rate limit
+      await waitForProxyRateLimit();
+
+      console.log(`[ProxyYouTube] Fetching transcript from: ${url.substring(0, 80)}...`);
+
+      const fetchOptions: RequestInit = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/xml,application/xml,*/*',
+        },
+      };
+
+      // Use residential proxy if configured
+      if (RESIDENTIAL_PROXY) {
+        const agent = new HttpsProxyAgent(RESIDENTIAL_PROXY);
+        (fetchOptions as any).agent = agent;
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      if (!response.ok) {
+        console.error(`[ProxyYouTube] Transcript fetch returned ${response.status}`);
+        return res.status(response.status).json({ error: `Failed to fetch transcript: ${response.status}` });
+      }
+
+      const xml = await response.text();
+
+      // Cache the response
+      setCachedResponse(cacheKey, xml);
+
+      res.type('text/xml').send(xml);
+    } catch (error: any) {
+      console.error('[ProxyYouTube] Error fetching transcript:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch transcript' });
+    }
+  });
+
+  // POST /api/videos/:id/transcript/store - Store a client-fetched transcript
+  app.post("/api/videos/:id/transcript/store", async (req, res) => {
+    try {
+      const video = await storage.getVideo(req.params.id);
+      if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+
+      // Validate the transcript data from the client
+      const { videoId, language, languageCode, isGenerated, snippets, fullText } = req.body;
+
+      if (!videoId || !language || !languageCode || !snippets || !fullText) {
+        return res.status(400).json({ error: 'Missing required transcript fields' });
+      }
+
+      // Verify videoId matches
+      if (videoId !== video.videoId) {
+        return res.status(400).json({ error: 'Video ID mismatch' });
+      }
+
+      // Check if transcript already exists
+      const existingTranscript = await storage.getTranscriptByVideoId(video.videoId);
+      if (existingTranscript) {
+        return res.json({ transcript: existingTranscript, message: 'Transcript already exists' });
+      }
+
+      // Validate snippets structure
+      if (!Array.isArray(snippets) || snippets.length === 0) {
+        return res.status(400).json({ error: 'Invalid snippets array' });
+      }
+
+      // Save transcript
+      const validatedTranscript = insertTranscriptSchema.parse({
+        videoId,
+        language,
+        languageCode,
+        isGenerated: isGenerated || false,
+        snippets,
+        fullText,
+      });
+
+      const transcript = await storage.createTranscript(validatedTranscript);
+
+      // Update video
+      await storage.updateVideo(video.id, {
+        hasTranscript: true,
+        transcriptDownloaded: true,
+      });
+
+      console.log(`[TranscriptStore] Stored client-fetched transcript for ${videoId}: ${snippets.length} snippets`);
+
+      res.json({ transcript, message: 'Transcript stored successfully' });
+    } catch (error: any) {
+      console.error('[TranscriptStore] Error storing transcript:', error);
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ error: validationError.message });
+      }
+      res.status(500).json({ error: error.message || 'Failed to store transcript' });
     }
   });
 
