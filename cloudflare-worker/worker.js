@@ -72,6 +72,7 @@ async function fetchYouTubePage(videoId) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+999; SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMwODI5LjA3X3AxGgJlbiACGgYIgJnSmgY',
     },
   });
 
@@ -81,8 +82,8 @@ async function fetchYouTubePage(videoId) {
 
   const html = await response.text();
 
-  // Check for consent/login page
-  if (html.includes('accounts.google.com/ServiceLogin') || html.includes('consent.youtube.com')) {
+  // Check for consent/login page (but with cookies, this shouldn't happen)
+  if (html.includes('consent.youtube.com') && !html.includes('ytInitialPlayerResponse')) {
     return jsonResponse({ error: 'YouTube consent page detected' }, 403);
   }
 

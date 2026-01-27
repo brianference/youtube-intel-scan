@@ -95,32 +95,59 @@ interface TranscriptSnippet {
  */
 function extractCaptionTracks(html: string): CaptionTrack[] {
   try {
-    // Look for the captions data in the page
-    const captionsRegex = /"captions":\s*(\{[\s\S]*?"captionTracks":\s*\[[\s\S]*?\][\s\S]*?\})/;
-    const match = html.match(captionsRegex);
-
-    if (!match) {
-      // Try alternative pattern
-      const altRegex = /captionTracks":\s*(\[[\s\S]*?\])/;
-      const altMatch = html.match(altRegex);
-
-      if (altMatch) {
-        try {
-          return JSON.parse(altMatch[1]);
-        } catch {
-          return [];
+    // Method 1: Find captionTracks array directly using a balanced bracket matcher
+    const captionTracksStart = html.indexOf('"captionTracks":[');
+    if (captionTracksStart !== -1) {
+      const arrayStart = html.indexOf('[', captionTracksStart);
+      if (arrayStart !== -1) {
+        // Find the matching closing bracket
+        let depth = 0;
+        let arrayEnd = -1;
+        for (let i = arrayStart; i < html.length && i < arrayStart + 50000; i++) {
+          if (html[i] === '[') depth++;
+          else if (html[i] === ']') {
+            depth--;
+            if (depth === 0) {
+              arrayEnd = i + 1;
+              break;
+            }
+          }
+        }
+        
+        if (arrayEnd !== -1) {
+          const arrayStr = html.substring(arrayStart, arrayEnd);
+          try {
+            const tracks = JSON.parse(arrayStr);
+            if (Array.isArray(tracks) && tracks.length > 0) {
+              console.log(`[ExtractCaptions] Found ${tracks.length} tracks via bracket matching`);
+              return tracks;
+            }
+          } catch (e) {
+            console.log('[ExtractCaptions] Failed to parse brackets-matched array:', e);
+          }
         }
       }
-      return [];
     }
 
-    try {
-      const captionsData = JSON.parse(match[1]);
-      return captionsData.playerCaptionsTracklistRenderer?.captionTracks || [];
-    } catch {
-      return [];
+    // Method 2: Look for ytInitialPlayerResponse
+    const playerResponseMatch = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{[\s\S]+?\});/);
+    if (playerResponseMatch) {
+      try {
+        const playerData = JSON.parse(playerResponseMatch[1]);
+        const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (tracks && tracks.length > 0) {
+          console.log(`[ExtractCaptions] Found ${tracks.length} tracks via ytInitialPlayerResponse`);
+          return tracks;
+        }
+      } catch (e) {
+        console.log('[ExtractCaptions] Failed to parse ytInitialPlayerResponse:', e);
+      }
     }
-  } catch {
+
+    console.log('[ExtractCaptions] No caption tracks found with any method');
+    return [];
+  } catch (e) {
+    console.error('[ExtractCaptions] Unexpected error:', e);
     return [];
   }
 }
