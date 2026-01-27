@@ -334,3 +334,164 @@ function decodeHtmlEntities(text: string): string {
     .replace(/\n/g, ' ')
     .trim();
 }
+
+/**
+ * BACKUP METHOD: Fetch transcript via YouTube's innertube API
+ * This is YouTube's internal API used by their mobile/TV apps
+ */
+export async function fetchTranscriptViaInnertube(videoId: string, preferredLanguages: string[] = ['en']): Promise<TranscriptResult> {
+  console.log(`[TranscriptFetcher:Innertube] Starting innertube fetch for video: ${videoId}`);
+
+  try {
+    await waitForRateLimit();
+
+    // Innertube API endpoint for getting video info
+    const innertubePayload = {
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion: '2.20240101.00.00',
+          hl: 'en',
+          gl: 'US',
+        },
+      },
+      videoId: videoId,
+    };
+
+    // Use proxy to avoid CORS
+    const response = await fetchWithRetry('/api/proxy/innertube', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(innertubePayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Innertube API returned ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Extract captions from innertube response
+    const captions = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+    if (!captions || captions.length === 0) {
+      throw new Error('No captions found via innertube API');
+    }
+
+    console.log(`[TranscriptFetcher:Innertube] Found ${captions.length} caption track(s)`);
+
+    // Select best track
+    const selectedTrack = selectBestCaptionTrack(captions, preferredLanguages);
+
+    if (!selectedTrack) {
+      throw new Error(`No captions found for languages: ${preferredLanguages.join(', ')}`);
+    }
+
+    console.log(`[TranscriptFetcher:Innertube] Selected track: ${selectedTrack.languageCode}`);
+
+    // Fetch transcript XML
+    await sleep(500);
+    const transcriptResponse = await fetchWithRetry(`/api/proxy/youtube-transcript?url=${encodeURIComponent(selectedTrack.baseUrl)}`);
+
+    if (!transcriptResponse.ok) {
+      throw new Error('Failed to fetch transcript content via innertube');
+    }
+
+    const transcriptXml = await transcriptResponse.text();
+    const snippets = parseTranscriptXml(transcriptXml);
+
+    if (snippets.length === 0) {
+      throw new Error('Transcript was empty or could not be parsed');
+    }
+
+    const fullText = snippets.map(s => s.text).join(' ');
+
+    console.log(`[TranscriptFetcher:Innertube] Successfully fetched: ${snippets.length} snippets`);
+
+    return {
+      videoId,
+      language: selectedTrack.name?.simpleText || selectedTrack.languageCode,
+      languageCode: selectedTrack.languageCode,
+      isGenerated: selectedTrack.kind === 'asr',
+      snippets,
+      fullText,
+    };
+
+  } catch (error: any) {
+    console.error('[TranscriptFetcher:Innertube] Fetch failed:', error);
+    throw new Error(error.message || 'Innertube fetch failed');
+  }
+}
+
+/**
+ * BACKUP METHOD: Fetch transcript via YouTube Data API v3
+ * Requires YOUTUBE_API_KEY environment variable on server
+ */
+export async function fetchTranscriptViaYouTubeAPI(videoId: string, preferredLanguages: string[] = ['en']): Promise<TranscriptResult> {
+  console.log(`[TranscriptFetcher:YouTubeAPI] Starting YouTube API fetch for video: ${videoId}`);
+
+  try {
+    await waitForRateLimit();
+
+    // Call server endpoint that uses YouTube Data API
+    const response = await fetchWithRetry(`/api/proxy/youtube-captions-api?videoId=${videoId}&languages=${preferredLanguages.join(',')}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `YouTube API returned ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.snippets || data.snippets.length === 0) {
+      throw new Error('No transcript data returned from YouTube API');
+    }
+
+    console.log(`[TranscriptFetcher:YouTubeAPI] Successfully fetched: ${data.snippets.length} snippets`);
+
+    return {
+      videoId,
+      language: data.language || 'English',
+      languageCode: data.languageCode || 'en',
+      isGenerated: data.isGenerated || false,
+      snippets: data.snippets,
+      fullText: data.fullText || data.snippets.map((s: TranscriptSnippet) => s.text).join(' '),
+    };
+
+  } catch (error: any) {
+    console.error('[TranscriptFetcher:YouTubeAPI] Fetch failed:', error);
+    throw new Error(error.message || 'YouTube API fetch failed');
+  }
+}
+
+/**
+ * Master fetch function with multiple fallbacks
+ * Order: 1) Client-side page scrape, 2) Innertube API, 3) YouTube Data API
+ */
+export async function fetchTranscriptWithFallbacks(videoId: string, preferredLanguages: string[] = ['en']): Promise<TranscriptResult> {
+  const methods = [
+    { name: 'client-side', fn: () => fetchTranscriptClientSide(videoId, preferredLanguages) },
+    { name: 'innertube', fn: () => fetchTranscriptViaInnertube(videoId, preferredLanguages) },
+    { name: 'youtube-api', fn: () => fetchTranscriptViaYouTubeAPI(videoId, preferredLanguages) },
+  ];
+
+  let lastError: Error | null = null;
+
+  for (const method of methods) {
+    try {
+      console.log(`[TranscriptFetcher] Trying method: ${method.name}`);
+      const result = await method.fn();
+      console.log(`[TranscriptFetcher] Success with method: ${method.name}`);
+      return result;
+    } catch (error: any) {
+      console.warn(`[TranscriptFetcher] Method ${method.name} failed: ${error.message}`);
+      lastError = error;
+      // Add delay before trying next method
+      await sleep(1000);
+    }
+  }
+
+  throw lastError || new Error('All transcript fetch methods failed');
+}

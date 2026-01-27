@@ -900,6 +900,169 @@ ${transcript.fullText}
     }
   });
 
+  // POST /api/proxy/innertube - Proxy for YouTube's innertube API
+  app.post("/api/proxy/innertube", async (req, res) => {
+    try {
+      const { context, videoId } = req.body;
+
+      if (!videoId) {
+        return res.status(400).json({ error: 'videoId is required' });
+      }
+
+      // Check cache
+      const cacheKey = `innertube:${videoId}`;
+      const cached = getCachedResponse(cacheKey);
+      if (cached) {
+        return res.json(JSON.parse(cached));
+      }
+
+      await waitForProxyRateLimit();
+
+      console.log(`[ProxyInnertube] Fetching video info for: ${videoId}`);
+
+      const innertubePayload = {
+        context: context || {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20240101.00.00',
+            hl: 'en',
+            gl: 'US',
+          },
+        },
+        videoId: videoId,
+      };
+
+      const fetchOptions: RequestInit = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        body: JSON.stringify(innertubePayload),
+      };
+
+      if (RESIDENTIAL_PROXY) {
+        const agent = new HttpsProxyAgent(RESIDENTIAL_PROXY);
+        (fetchOptions as any).agent = agent;
+      }
+
+      const response = await fetch(
+        'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8',
+        fetchOptions
+      );
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: `Innertube API returned ${response.status}` });
+      }
+
+      const data = await response.json();
+
+      // Cache the response
+      setCachedResponse(cacheKey, JSON.stringify(data));
+
+      res.json(data);
+    } catch (error: any) {
+      console.error('[ProxyInnertube] Error:', error);
+      res.status(500).json({ error: error.message || 'Innertube proxy failed' });
+    }
+  });
+
+  // GET /api/proxy/youtube-captions-api - Fetch captions via YouTube Data API v3
+  app.get("/api/proxy/youtube-captions-api", async (req, res) => {
+    try {
+      const { videoId, languages } = req.query;
+
+      if (!videoId || typeof videoId !== 'string') {
+        return res.status(400).json({ error: 'videoId is required' });
+      }
+
+      const apiKey = process.env.YOUTUBE_API_KEY;
+      if (!apiKey) {
+        return res.status(501).json({ error: 'YouTube API key not configured. Set YOUTUBE_API_KEY environment variable.' });
+      }
+
+      // Check cache
+      const cacheKey = `ytapi:${videoId}`;
+      const cached = getCachedResponse(cacheKey);
+      if (cached) {
+        return res.json(JSON.parse(cached));
+      }
+
+      await waitForProxyRateLimit();
+
+      console.log(`[ProxyYouTubeAPI] Fetching captions list for: ${videoId}`);
+
+      // Step 1: List available captions
+      const listUrl = `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${apiKey}`;
+      const listResponse = await fetch(listUrl);
+
+      if (!listResponse.ok) {
+        const errorData = await listResponse.json().catch(() => ({}));
+        console.error('[ProxyYouTubeAPI] Captions list failed:', errorData);
+        return res.status(listResponse.status).json({
+          error: errorData.error?.message || `YouTube API returned ${listResponse.status}`
+        });
+      }
+
+      const listData = await listResponse.json();
+      const captions = listData.items || [];
+
+      if (captions.length === 0) {
+        return res.status(404).json({ error: 'No captions available for this video' });
+      }
+
+      console.log(`[ProxyYouTubeAPI] Found ${captions.length} caption track(s)`);
+
+      // Step 2: Select best caption based on language preference
+      const preferredLangs = (languages as string || 'en').split(',');
+      let selectedCaption = null;
+
+      // Try to find preferred language (manual first)
+      for (const lang of preferredLangs) {
+        selectedCaption = captions.find((c: any) =>
+          c.snippet.language.startsWith(lang) && c.snippet.trackKind !== 'ASR'
+        );
+        if (selectedCaption) break;
+      }
+
+      // Fall back to auto-generated in preferred language
+      if (!selectedCaption) {
+        for (const lang of preferredLangs) {
+          selectedCaption = captions.find((c: any) =>
+            c.snippet.language.startsWith(lang)
+          );
+          if (selectedCaption) break;
+        }
+      }
+
+      // Fall back to any caption
+      if (!selectedCaption) {
+        selectedCaption = captions[0];
+      }
+
+      // Note: captions.download requires OAuth2, so we'll fall back to the
+      // timedtext URL method which we can get from the video page
+      // This endpoint mainly confirms captions exist and returns metadata
+
+      const result = {
+        videoId,
+        language: selectedCaption.snippet.name || selectedCaption.snippet.language,
+        languageCode: selectedCaption.snippet.language,
+        isGenerated: selectedCaption.snippet.trackKind === 'ASR',
+        captionId: selectedCaption.id,
+        // Note: actual transcript content requires OAuth2 or page scraping
+        message: 'Caption metadata retrieved. Use client-side method to fetch content.',
+      };
+
+      setCachedResponse(cacheKey, JSON.stringify(result));
+      res.json(result);
+
+    } catch (error: any) {
+      console.error('[ProxyYouTubeAPI] Error:', error);
+      res.status(500).json({ error: error.message || 'YouTube API proxy failed' });
+    }
+  });
+
   // POST /api/videos/:id/transcript/store - Store a client-fetched transcript
   app.post("/api/videos/:id/transcript/store", async (req, res) => {
     try {

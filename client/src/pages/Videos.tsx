@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Download, Sparkles, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { fetchTranscriptClientSide } from "@/lib/transcriptFetcher";
+import { fetchTranscriptWithFallbacks } from "@/lib/transcriptFetcher";
 import type { Video, Channel } from "@shared/schema";
 
 export default function Videos() {
@@ -91,13 +91,14 @@ export default function Videos() {
         throw new Error('Video not found');
       }
 
-      console.log(`[TranscriptDownload] Starting client-side fetch for: ${video.videoId}`);
+      console.log(`[TranscriptDownload] Starting fetch with fallbacks for: ${video.videoId}`);
 
       try {
-        // Step 1: Fetch transcript using client-side method (uses user's IP via proxy)
-        const transcriptData = await fetchTranscriptClientSide(video.videoId, ['en', 'en-US', 'en-GB']);
+        // Step 1: Fetch transcript using multiple methods with automatic fallback
+        // Order: client-side scrape → innertube API → YouTube Data API
+        const transcriptData = await fetchTranscriptWithFallbacks(video.videoId, ['en', 'en-US', 'en-GB']);
 
-        console.log(`[TranscriptDownload] Client-side fetch successful, storing transcript...`);
+        console.log(`[TranscriptDownload] Fetch successful, storing transcript...`);
 
         // Step 2: Store the transcript on the server
         const storeResponse = await apiRequest('POST', `/api/videos/${videoDbId}/transcript/store`, transcriptData);
@@ -110,7 +111,7 @@ export default function Videos() {
         return await storeResponse.json();
 
       } catch (clientError: any) {
-        console.warn(`[TranscriptDownload] Client-side fetch failed: ${clientError.message}`);
+        console.warn(`[TranscriptDownload] All client methods failed: ${clientError.message}`);
         console.log(`[TranscriptDownload] Falling back to server-side fetch...`);
 
         // Fallback: Try server-side fetching (may work if server has different IP/proxy)
